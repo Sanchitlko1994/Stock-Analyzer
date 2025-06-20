@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: stock-analyzer-app
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run stock_analyzer_app.py --server.port=10000 --server.enableCORS false
