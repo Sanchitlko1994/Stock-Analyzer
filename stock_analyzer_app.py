@@ -10,15 +10,21 @@ from yaml.loader import SafeLoader
 # ---------- Authentication Setup ----------
 names = ["Sanchit", "Shweta"]
 usernames = ["sanchit1994", "shweta1995"]
-passwords = ["Avyan123", "Avyan456"]  # plain text (for demo)
+passwords = ["123", "456"]  # plain text (for demo)
 
 # Hash passwords
 hashed_pw = stauth.Hasher(passwords).generate()
 
 credentials = {
     "usernames": {
-        usernames[0]: {"name": names[0], "password": hashed_pw[0]},
-        usernames[1]: {"name": names[1], "password": hashed_pw[1]},
+        "alice": {
+            "name": "Alice",
+            "password": "$2b$12$37DN8IfND7GphQvbpETk7eO3KZCIOQkMbvNRRrs37vFOCHHLQSGFe"
+        },
+        "bob": {
+            "name": "Bob",
+            "password": "$2b$12$HZImRIV6kqJfWGE7P8OfUemGehCmLP13ReeZZgcy6fHtzdoK9wLWC"
+        },
     }
 }
 
