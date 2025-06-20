@@ -38,11 +38,11 @@ if st.sidebar.button("Analyze"):
         if data.empty or 'Close' not in data.columns:
             st.warning(f"No usable 'Close' price data found for '{ticker}'. Try another ticker.")
         else:
-            close_prices = data['Close']
+            close_prices = data['Close'].dropna()
 
-            # Only compute indicators if enough data
-            if close_prices.isnull().all() or len(close_prices) < 20:
-                st.error("Not enough data to compute indicators.")
+            # ✅ Correct check for usable Close data
+            if close_prices.empty or len(close_prices) < 20:
+                st.error("Not enough valid 'Close' price data to compute indicators.")
             else:
                 # Indicators
                 data['SMA_20'] = ta.trend.sma_indicator(close=close_prices, window=20)
@@ -51,7 +51,7 @@ if st.sidebar.button("Analyze"):
                 # Plot SMA chart
                 st.subheader(f"📈 {user_input.upper()} Price Chart with SMA")
                 fig, ax = plt.subplots(figsize=(12, 6))
-                ax.plot(data.index, close_prices, label='Close Price')
+                ax.plot(data.index, data['Close'], label='Close Price')
                 ax.plot(data.index, data['SMA_20'], label='SMA 20', linestyle='--')
                 ax.set_title(f"{user_input.upper()} - Price with SMA")
                 ax.legend()
