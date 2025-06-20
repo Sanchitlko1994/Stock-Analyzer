@@ -10,11 +10,11 @@ credentials = {
     "usernames": {
         "sanchit1994": {
             "name": "Sanchit",
-            "password": "$2b$12$PU6DkTb2ecxKDHzBZg3I4uELojSt96NizNSrA8mKkX7XYBb3HpBp2"
+            "password": "$2b$12$moZ43RYXHDV4L0CV8xuWkOKLoOa2bUefKji5mwKWaGbx1Hj6YTK1y"
         },
         "shweta1995": {
             "name": "Shweta",
-            "password": "$2b$12$n84EwFzRPD6g.7asN8vLSueExCi2Z0u1KeSVVsEsEEJiEYExF12Je"
+            "password": "$2b$12$tEgfH7RAmspS95T4wqsoQO9nt0oSPiAuYTrpSC6uUtJczzgT3MQIm"
         }
     }
 }
