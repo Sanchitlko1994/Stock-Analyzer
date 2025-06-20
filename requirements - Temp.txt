@@ -1,0 +1,7 @@
+streamlit
+streamlit-authenticator==0.2.3
+yfinance
+ta
+matplotlib
+pandas
+bcrypt
