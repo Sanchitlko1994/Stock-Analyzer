@@ -39,9 +39,15 @@ def fetch_data(ticker, start, end):
     return df
 
 def calculate_indicators(df):
-    df['EMA_12'] = ta.trend.EMAIndicator(close=df['Close'], window=12).ema_indicator()
-    df['EMA_26'] = ta.trend.EMAIndicator(close=df['Close'], window=26).ema_indicator()
-    df['RSI'] = ta.momentum.RSIIndicator(close=df['Close'], window=14).rsi()
+    close = df['Close']
+    ema12 = ta.trend.EMAIndicator(close=close, window=12).ema_indicator()
+    ema26 = ta.trend.EMAIndicator(close=close, window=26).ema_indicator()
+    rsi = ta.momentum.RSIIndicator(close=close, window=14).rsi()
+
+    df['EMA_12'] = pd.Series(ema12.values.ravel(), index=df.index)
+    df['EMA_26'] = pd.Series(ema26.values.ravel(), index=df.index)
+    df['RSI'] = pd.Series(rsi.values.ravel(), index=df.index)
+
     return df
 
 def generate_signals(df):
@@ -91,8 +97,13 @@ if st.sidebar.button("Analyze & Compare"):
     for ticker in ticker_list:
         try:
             df = fetch_data(ticker, start_date, end_date)
+            if df.empty or 'Close' not in df.columns:
+                st.warning(f"No valid data for {ticker}")
+                continue
+
             df = calculate_indicators(df)
             df = generate_signals(df)
+
             if not df.empty and 'RSI' in df.columns:
                 rsi_list.append((ticker, df['RSI'].iloc[-1]))
                 result_data[ticker] = df
