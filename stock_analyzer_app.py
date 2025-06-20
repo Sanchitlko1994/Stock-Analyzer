@@ -27,7 +27,7 @@ authenticator = stauth.Authenticate(
 )
 
 # Corrected login call using keyword arguments
-name, authentication_status, username = authenticator.login(label="Login", location="main")
+name, authentication_status, username = authenticator.login("Login", location="main")
 
 # ---------- If Authenticated ----------
 if authentication_status:
