@@ -21,13 +21,13 @@ credentials = {
 
 authenticator = stauth.Authenticate(
     credentials,
-    "stock_dashboard",         # Cookie name
-    "abcdef1234567890",        # Signature key (keep secret in production)
+    "stock_dashboard",          # cookie name
+    "abcdef1234567890",         # signature key
     cookie_expiry_days=1
 )
 
-# Login UI
-name, authentication_status, username = authenticator.login("Login", location="main")
+# Corrected login call using keyword arguments
+name, authentication_status, username = authenticator.login(label="Login", location="main")
 
 # ---------- If Authenticated ----------
 if authentication_status:
@@ -38,7 +38,7 @@ if authentication_status:
     st.title("📊 EMA-Based Stock Analyzer Dashboard")
 
     # Sidebar Inputs
-    user_input = st.sidebar.text_input("Stock Ticker (e.g., AAPL, TCS.NS)", "TCS")
+    user_input = st.sidebar.text_input("Stock Ticker (e.g., AAPL, TCS)", "TCS")
     start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
     end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
 
@@ -79,7 +79,7 @@ if authentication_status:
                         lambda x: 'Buy' if x < 30 else ('Sell' if x > 70 else '')
                     )
 
-                    # Price + EMA Chart
+                    # EMA Chart
                     st.subheader(f"📈 {user_input.upper()} Price with EMA Buy/Sell Signals")
                     fig, ax = plt.subplots(figsize=(14, 6))
                     ax.plot(data.index, data['Close'], label='Close')
@@ -103,7 +103,7 @@ if authentication_status:
                     ax2.legend()
                     st.pyplot(fig2)
 
-                    # Table and CSV Export
+                    # Data Table and Export
                     st.subheader("📄 Latest Signal Table")
                     st.dataframe(data[['Close', 'EMA_12', 'EMA_26', 'RSI', 'EMA_Signal', 'RSI_Signal']].tail(20))
 
@@ -120,6 +120,6 @@ if authentication_status:
 elif authentication_status is False:
     st.error("❌ Incorrect username or password")
 
-# ---------- If Login Not Attempted Yet ----------
+# ---------- If Login Not Attempted ----------
 elif authentication_status is None:
     st.info("Please log in to access the dashboard.")
