@@ -4,6 +4,8 @@ import pandas as pd
 import ta
 import matplotlib.pyplot as plt
 import streamlit_authenticator as stauth
+st.write(f"Using authenticator version: {stauth.__version__}")
+st.write(stauth.Hasher(['123']).generate())
 
 # ---------- Authentication Setup ----------
 credentials = {
