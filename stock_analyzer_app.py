@@ -39,9 +39,9 @@ def fetch_data(ticker, start, end):
     return df
 
 def calculate_indicators(df):
-    df['EMA_12'] = ta.trend.ema_indicator(df['Close'], window=12)
-    df['EMA_26'] = ta.trend.ema_indicator(df['Close'], window=26)
-    df['RSI'] = ta.momentum.rsi(df['Close'], window=14)
+    df['EMA_12'] = ta.trend.EMAIndicator(close=df['Close'], window=12).ema_indicator()
+    df['EMA_26'] = ta.trend.EMAIndicator(close=df['Close'], window=26).ema_indicator()
+    df['RSI'] = ta.momentum.RSIIndicator(close=df['Close'], window=14).rsi()
     return df
 
 def generate_signals(df):
@@ -56,7 +56,7 @@ def plot_price_with_signals(df, ticker):
     ax.plot(df.index, df['Close'], label='Close Price', color='black')
     ax.plot(df.index, df['EMA_12'], label='EMA 12', linestyle='--')
     ax.plot(df.index, df['EMA_26'], label='EMA 26', linestyle=':')
-    
+
     buy_points = df[df['Buy_EMA']]
     sell_points = df[df['Sell_EMA']]
     ax.plot(buy_points.index, buy_points['Close'], '^', markersize=10, color='green', label='Buy Signal')
