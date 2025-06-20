@@ -39,14 +39,15 @@ def fetch_data(ticker, start, end):
     return df
 
 def calculate_indicators(df):
-    close = df['Close']
+    close = df['Close'].squeeze()  # Ensure it's a 1D Series
+
     ema12 = ta.trend.EMAIndicator(close=close, window=12).ema_indicator()
     ema26 = ta.trend.EMAIndicator(close=close, window=26).ema_indicator()
     rsi = ta.momentum.RSIIndicator(close=close, window=14).rsi()
 
-    df['EMA_12'] = pd.Series(ema12.values.ravel(), index=df.index)
-    df['EMA_26'] = pd.Series(ema26.values.ravel(), index=df.index)
-    df['RSI'] = pd.Series(rsi.values.ravel(), index=df.index)
+    df['EMA_12'] = ema12
+    df['EMA_26'] = ema26
+    df['RSI'] = rsi
 
     return df
 
