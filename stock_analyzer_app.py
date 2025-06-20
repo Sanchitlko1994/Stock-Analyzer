@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 # Streamlit UI
 st.set_page_config(page_title="Stock Analyzer", layout="wide")
-st.title("📊 EMA-Based Stock Analyzer Web App")
+st.title("📊 Stock Analyzer Web App")
 
 # Sidebar input
 user_input = st.sidebar.text_input("Stock Ticker (e.g., AAPL, TCS.NS)", "TCS")
