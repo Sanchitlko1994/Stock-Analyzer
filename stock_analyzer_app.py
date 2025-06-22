@@ -106,7 +106,7 @@ hf_headers = {"Authorization": f"Bearer {hf_token}"}
 user_input_chat = st.sidebar.text_input("Your question")
 
 if user_input_chat:
-    prompt = f"<|system|>\nYou are a helpful financial assistant.\n<|user|>\n{user_input_chat}\n<|assistant|>"
+    prompt = user_input_chat
 
     try:
         response = requests.post(
