@@ -120,7 +120,7 @@ with st.container():
 
     with chat_col:
         # Styling for fixed-position chat box
-        st.markdown("<div style='position:fixed; bottom:10px; right:10px; width:300px; padding:10px; border:1px solid #ccc; border-radius:10px; background-color:#f9f9f9;'>", unsafe_allow_html=True)
+        st.markdown("<div style='position:fixed; bottom:20px; right:10px; width:50px; padding:10px; border:1px solid #ccc; border-radius:10px; background-color:#f9f9f9;'>", unsafe_allow_html=True)
         st.markdown("### 💬 Ask Shweta")  # Chatbot title
 
         # Setup Hugging Face inference endpoint
