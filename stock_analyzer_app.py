@@ -51,7 +51,15 @@ st.markdown("""
 # 🧾 Title
 # ==============================================
 
-st.title("📊 Stock Analyzer Web App")
+# Add title at the top (fully centered)
+st.markdown(
+    """
+    <h1 style='text-align: center; margin-top: 10px; font-size: 3rem;'>📊 Stock Analyzer Web App</h1>
+    """,
+    unsafe_allow_html=True
+)
+
+#st.title("📊 Stock Analyzer Web App")
 
 # ==============================================
 # 📂 Function: Load Stock List from GitHub CSV
