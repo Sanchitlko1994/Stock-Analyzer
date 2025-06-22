@@ -68,7 +68,7 @@ def get_nse_index_stocks(index_name="NIFTY 50"):
     return df[df["index"] == index_name]["stock"].tolist()
 
 # ==============================================
-# 🗸️ Sidebar Inputs
+# ☘️ Sidebar Inputs
 # ==============================================
 
 index_options = [
@@ -83,17 +83,37 @@ end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
 analyze_button = st.sidebar.button("🔍 Analyze")
 clear_button = st.sidebar.button("🗾 Clear Analysis")
 
-indicator_choice = st.sidebar.radio(
-    "📊 Select Technical Indicator",
-    options=["None", "RSI", "MACD"],
-    index=0
-)
+if "show_indicator_settings" not in st.session_state:
+    st.session_state.show_indicator_settings = False
+if "show_indicator_chart" not in st.session_state:
+    st.session_state.show_indicator_chart = False
 
-st.sidebar.markdown("### 🎛️ Customize Indicators")
-rsi_period = int(st.sidebar.number_input("RSI Period", min_value=2, max_value=50, value=14))
-macd_fast = int(st.sidebar.number_input("MACD Fast Period", min_value=2, max_value=50, value=12))
-macd_slow = int(st.sidebar.number_input("MACD Slow Period", min_value=macd_fast + 1, max_value=100, value=26))
-macd_signal = int(st.sidebar.number_input("MACD Signal Period", min_value=1, max_value=30, value=9))
+if st.sidebar.button("📃 Show Customized Options"):
+    st.session_state.show_indicator_settings = not st.session_state.show_indicator_settings
+
+if st.sidebar.button("📊 Show RSI/MACD Chart"):
+    st.session_state.show_indicator_chart = not st.session_state.show_indicator_chart
+
+if st.session_state.show_indicator_chart:
+    indicator_choice = st.sidebar.radio(
+        "📊 Select Technical Indicator",
+        options=["None", "RSI", "MACD"],
+        index=0
+    )
+else:
+    indicator_choice = "None"
+
+if st.session_state.show_indicator_settings:
+    st.sidebar.markdown("### 🎛️ Customize Indicators")
+    rsi_period = int(st.sidebar.number_input("RSI Period", min_value=2, max_value=50, value=14))
+    macd_fast = int(st.sidebar.number_input("MACD Fast Period", min_value=2, max_value=50, value=12))
+    macd_slow = int(st.sidebar.number_input("MACD Slow Period", min_value=13, max_value=100, value=26))
+    macd_signal = int(st.sidebar.number_input("MACD Signal Period", min_value=1, max_value=30, value=9))
+else:
+    rsi_period = 14
+    macd_fast = 12
+    macd_slow = 26
+    macd_signal = 9
 
 if "show_chat" not in st.session_state:
     st.session_state.show_chat = False
