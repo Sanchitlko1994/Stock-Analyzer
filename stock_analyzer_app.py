@@ -19,7 +19,7 @@ st.title("📊 Stock Analyzer Web App")  # Title displayed on the app
 # -------------------------------
 @st.cache_data
 def get_nse_index_stocks(index_name="NIFTY 50"):
-    csv_url = "https://github.com/Sanchitlko1994/Stock-Analyzer/blob/main/NSE%20INDEX%20STOCKS.csv"
+    csv_url = "https://raw.githubusercontent.com/Sanchitlko1994/Stock-Analyzer/main/NSE%20INDEX%20STOCKS.csv"
     df = pd.read_csv(csv_url)
     return df[df["index"] == index_name]["stock"].tolist()
 
