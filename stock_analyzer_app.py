@@ -99,7 +99,7 @@ if st.sidebar.button("Analyze"):
 st.sidebar.markdown("---")
 st.sidebar.subheader("💬 Ask Hugging Face Assistant")
 
-HF_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
+HF_API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
 hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
 hf_headers = {"Authorization": f"Bearer {hf_token}"}
 
@@ -109,8 +109,8 @@ if "hf_chat_history" not in st.session_state:
 user_input_chat = st.sidebar.text_input("Your question")
 
 if user_input_chat:
-    st.session_state.hf_chat_history.append(("🧑 You", user_input_chat))
-    prompt = f"You are a helpful stock market assistant.\nUser: {user_input_chat}\nAssistant:"
+    st.session_state.hf_chat_history.append(("👤 You", user_input_chat))
+    prompt = f"<|system|>\nYou are a helpful financial assistant.\n<|user|>\n{user_input_chat}\n<|assistant|>"
 
     try:
         response = requests.post(
@@ -120,7 +120,7 @@ if user_input_chat:
             timeout=30
         )
         response.raise_for_status()
-        output = response.json()[0]['generated_text']
+        output = response.json()[0]['generated_text'].split('<|assistant|>')[-1].strip()
     except Exception as e:
         output = f"❌ Hugging Face API error: {str(e)}"
 
