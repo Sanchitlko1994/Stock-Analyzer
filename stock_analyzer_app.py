@@ -1,131 +1,143 @@
-# Import required libraries
-import streamlit as st  # Streamlit for creating the web interface
-import yfinance as yf   # yfinance for downloading stock price data
-import pandas as pd     # pandas for data manipulation
-import ta               # technical analysis library for indicators like SMA and RSI
-import matplotlib.pyplot as plt  # for plotting graphs
+# Stock Analyzer Web App
+
+import streamlit as st
+import yfinance as yf
+import pandas as pd
+import ta
+import matplotlib.pyplot as plt
+import mplfinance as mpf
 import requests
 import os
+from bs4 import BeautifulSoup
 
-# -------------------------------
-# Streamlit Page Configuration
-# -------------------------------
-st.set_page_config(page_title="Stock Analyzer", layout="wide")  # Set page title and layout
-st.title("📊 Stock Analyzer Web App")  # Title displayed on the app
+# ----------------------------
+# Page Config
+# ----------------------------
+st.set_page_config(page_title="Stock Analyzer", layout="wide")
+st.title("📊 Stock Analyzer Web App")
 
-# -------------------------------
-# Sidebar Input Fields
-# -------------------------------
-user_input = st.sidebar.text_input("Stock Ticker (e.g., AAPL, TCS.NS)", "TCS")  # User input for stock symbol
-start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))  # Start date for data download
-end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))  # End date for data download
+# ----------------------------
+# NSE Index Options
+# ----------------------------
+index_options = {
+    "NIFTY 50": "NIFTY 50",
+    "NIFTY 100": "NIFTY 100",
+    "NIFTY 500": "NIFTY 500",
+    "NIFTY AUTO": "NIFTY AUTO"
+}
 
-# -------------------------------
-# Helper Function to Format Ticker
-# -------------------------------
-def format_ticker(ticker):
-    if "." not in ticker:
-        return ticker.strip().upper() + ".NS"
-    return ticker.strip().upper()
+index_selected = st.sidebar.selectbox("Select NSE Index", list(index_options.keys()))
+start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
+end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
 
-ticker = format_ticker(user_input)
-
-# -------------------------------
-# Data Download Function (Cached)
-# -------------------------------
+# ----------------------------
+# NSE Ticker Fetching
+# ----------------------------
 @st.cache_data
-def get_data(ticker, start, end):
-    df = yf.download(ticker, start=start, end=end)
+def get_nse_index_stocks(index_name):
+    url = f"https://www.nseindia.com/api/equity-stockIndices?index={index_name.replace(' ', '%20')}"
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json"
+    }
+    session = requests.Session()
+    session.headers.update(headers)
+    response = session.get("https://www.nseindia.com")  # Necessary to establish session
+    r = session.get(url)
+    r.raise_for_status()
+    data = r.json()
+    return [stock["symbol"] + ".NS" for stock in data["data"]]
+
+# ----------------------------
+# Data Fetch & Indicator Calc
+# ----------------------------
+@st.cache_data
+def get_stock_data(ticker):
+    df = yf.download(ticker, start=start_date, end=end_date)
     if not df.empty:
         df = df.dropna()
     return df
 
-# -------------------------------
-# Bollinger Breakout Detection
-# -------------------------------
-from ta.volatility import BollingerBands
-
 def detect_bollinger_breakout(df):
-    if len(df) < 25 or 'Close' not in df.columns:
-        return False
-
     close = df['Close']
-    if isinstance(close, pd.DataFrame):
-        close = close.squeeze()
-
-    bb = BollingerBands(close=close, window=20, window_dev=2)
-
-    # Compute bands
+    bb = ta.volatility.BollingerBands(close, window=20, window_dev=2)
     df['bb_bbm'] = bb.bollinger_mavg()
     df['bb_bbh'] = bb.bollinger_hband()
     df['bb_bbl'] = bb.bollinger_lband()
+    df['bb_width'] = df['bb_bbh'] - df['bb_bbl']
+    
+    recent = df.iloc[-1]
+    narrow = df['bb_width'].rolling(20).mean().iloc[-1] * 0.75
+    is_narrow = recent['bb_width'] < narrow
+    is_breakout = recent['Close'] > recent['bb_bbh']
+    return is_narrow and is_breakout
 
-    # Calculate Bollinger Band width as a ratio
-    df['bb_range'] = (df['bb_bbh'] - df['bb_bbl']) / df['bb_bbm']
+# ----------------------------
+# Process Index Stocks
+# ----------------------------
+qualified_stocks = []
+stocks_list = []
+try:
+    stocks_list = get_nse_index_stocks(index_options[index_selected])
+    for stock in stocks_list:
+        df = get_stock_data(stock)
+        if not df.empty and detect_bollinger_breakout(df):
+            qualified_stocks.append(stock)
+except Exception as e:
+    st.error(f"❌ Failed to load index data: {e}")
 
-    # Detect upper breakout from a narrow band
-    return (
-        df['Close'].iloc[-1] > df['bb_bbh'].iloc[-1] and
-        df['Close'].iloc[-2] <= df['bb_bbh'].iloc[-2] and
-        df['bb_range'].iloc[-1] < 0.05
+# ----------------------------
+# UI Output
+# ----------------------------
+if qualified_stocks:
+    selected_stock = st.selectbox("Select Breakout Stock", qualified_stocks)
+    df = get_stock_data(selected_stock)
+
+    # Indicators
+    bb = ta.volatility.BollingerBands(df['Close'], window=20, window_dev=2)
+    df['bb_mavg'] = bb.bollinger_mavg()
+    df['bb_high'] = bb.bollinger_hband()
+    df['bb_low'] = bb.bollinger_lband()
+    df['RSI'] = ta.momentum.RSIIndicator(df['Close'], window=14).rsi()
+
+    # Candlestick + Bollinger
+    st.subheader("📈 Candlestick with Bollinger Bands")
+    mpf_data = df[['Open', 'High', 'Low', 'Close']]
+    addplots = [
+        mpf.make_addplot(df['bb_high'], color='g'),
+        mpf.make_addplot(df['bb_low'], color='r'),
+        mpf.make_addplot(df['bb_mavg'], color='b')
+    ]
+    fig, _ = mpf.plot(mpf_data, type='candle', style='yahoo', addplot=addplots, returnfig=True)
+    st.pyplot(fig)
+
+    # RSI Plot
+    st.subheader("📉 RSI Indicator")
+    fig2, ax2 = plt.subplots(figsize=(12, 3))
+    ax2.plot(df.index, df['RSI'], label='RSI', color='green')
+    ax2.axhline(70, linestyle='--', color='red')
+    ax2.axhline(30, linestyle='--', color='blue')
+    ax2.set_title("RSI (14)")
+    ax2.legend()
+    st.pyplot(fig2)
+
+    # Dataframe
+    st.subheader("📄 Sample Data")
+    st.dataframe(df.tail(10))
+
+    # Download
+    st.download_button(
+        label="⬇️ Download CSV",
+        data=df.to_csv().encode(),
+        file_name=f"{selected_stock}_data.csv",
+        mime='text/csv'
     )
+else:
+    st.info("No stocks found with strong breakout setup.")
 
-# -------------------------------
-# Main Analysis Logic Triggered on Button Click
-# -------------------------------
-if st.sidebar.button("Analyze"):
-    try:
-        data = get_data(ticker, start_date, end_date)
-
-        if data.empty or 'Close' not in data.columns:
-            st.warning(f"No valid 'Close' data found for {ticker}.")
-        else:
-            close_prices = data['Close']
-            if isinstance(close_prices, pd.DataFrame):
-                close_prices = close_prices.squeeze()
-
-            if close_prices.empty or len(close_prices) < 20:
-                st.error("Not enough data to calculate indicators.")
-            else:
-                sma_20 = ta.trend.SMAIndicator(close=close_prices, window=20).sma_indicator()
-                rsi_14 = ta.momentum.RSIIndicator(close=close_prices, window=14).rsi()
-
-                data['SMA_20'] = sma_20
-                data['RSI'] = rsi_14
-
-                st.subheader(f"📈 {user_input.upper()} Price Chart with SMA")
-                fig, ax = plt.subplots(figsize=(12, 6))
-                ax.plot(data.index, data['Close'], label='Close Price')
-                ax.plot(data.index, data['SMA_20'], label='SMA 20', linestyle='--')
-                ax.set_title(f"{user_input.upper()} - Price with SMA")
-                ax.legend()
-                st.pyplot(fig)
-
-                st.subheader("📉 RSI Indicator")
-                fig2, ax2 = plt.subplots(figsize=(12, 3))
-                ax2.plot(data.index, data['RSI'], label='RSI', color='green')
-                ax2.axhline(70, linestyle='--', color='red')
-                ax2.axhline(30, linestyle='--', color='blue')
-                ax2.set_title("RSI (14)")
-                ax2.legend()
-                st.pyplot(fig2)
-
-                st.subheader("📄 Sample Data")
-                st.dataframe(data.tail(10))
-
-                st.download_button(
-                    label="⬇️ Download CSV",
-                    data=data.to_csv().encode(),
-                    file_name=f"{user_input.upper()}_data.csv",
-                    mime='text/csv'
-                )
-
-    except Exception as e:
-        st.error(f"❌ Error: {str(e)}")
-
-# -------------------------------
-# Hugging Face Chatbot Section
-# -------------------------------
+# ----------------------------
+# Hugging Face Chatbot
+# ----------------------------
 st.sidebar.markdown("---")
 st.sidebar.subheader("💬 Ask Shweta")
 
@@ -136,13 +148,11 @@ hf_headers = {"Authorization": f"Bearer {hf_token}"}
 user_input_chat = st.sidebar.text_input("Your question")
 
 if user_input_chat:
-    prompt = user_input_chat
-
     try:
         response = requests.post(
             HF_API_URL,
             headers=hf_headers,
-            json={"inputs": prompt},
+            json={"inputs": user_input_chat},
             timeout=30
         )
         response.raise_for_status()
