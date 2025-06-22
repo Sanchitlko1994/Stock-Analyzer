@@ -7,3 +7,4 @@ pandas
 bcrypt
 openai
 mplfinance
+streamlit-extras
