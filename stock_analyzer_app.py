@@ -1,30 +1,28 @@
-import streamlit as st
-import yfinance as yf
-import pandas as pd
-import ta
-import matplotlib.pyplot as plt
+# Import required libraries
+import streamlit as st  # Streamlit for creating the web interface
+import yfinance as yf   # yfinance for downloading stock price data
+import pandas as pd     # pandas for data manipulation
+import ta               # technical analysis library for indicators like SMA and RSI
+import matplotlib.pyplot as plt  # for plotting graphs
+import requests
 import os
-from openai import OpenAI
 
 # -------------------------------
-# Load OpenAI API Key
+# Streamlit Page Configuration
 # -------------------------------
-openai_api_key = st.secrets.get("openai_api_key") or os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=openai_api_key)
+st.set_page_config(page_title="Stock Analyzer", layout="wide")  # Set page title and layout
+st.title("📊 Stock Analyzer Web App")  # Title displayed on the app
 
 # -------------------------------
-# Page Config
+# Sidebar Input Fields
 # -------------------------------
-st.set_page_config(page_title="📊 Stock Analyzer + GPT Chatbot", layout="wide")
-st.title("📊 Stock Analyzer with GPT-4 Chatbot")
+user_input = st.sidebar.text_input("Stock Ticker (e.g., AAPL, TCS.NS)", "TCS")  # User input for stock symbol
+start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))  # Start date for data download
+end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))  # End date for data download
 
 # -------------------------------
-# Sidebar: Inputs
+# Helper Function to Format Ticker
 # -------------------------------
-user_input = st.sidebar.text_input("Stock Ticker (e.g., AAPL, TCS.NS)", "TCS")
-start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
-end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
-
 def format_ticker(ticker):
     if "." not in ticker:
         return ticker.strip().upper() + ".NS"
@@ -33,7 +31,7 @@ def format_ticker(ticker):
 ticker = format_ticker(user_input)
 
 # -------------------------------
-# Cache data download
+# Data Download Function (Cached)
 # -------------------------------
 @st.cache_data
 def get_data(ticker, start, end):
@@ -43,7 +41,7 @@ def get_data(ticker, start, end):
     return df
 
 # -------------------------------
-# Analyze button logic
+# Main Analysis Logic Triggered on Button Click
 # -------------------------------
 if st.sidebar.button("Analyze"):
     try:
@@ -91,56 +89,43 @@ if st.sidebar.button("Analyze"):
                     file_name=f"{user_input.upper()}_data.csv",
                     mime='text/csv'
                 )
+
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
 
 # -------------------------------
-# GPT-4 Chatbot Section (with token-saving)
+# Hugging Face Chatbot Section
 # -------------------------------
 st.sidebar.markdown("---")
-st.sidebar.subheader("💬 Ask AI Assistant")
+st.sidebar.subheader("💬 Ask Hugging Face Assistant")
 
-# Chat history memory
-if "chat_messages" not in st.session_state:
-    st.session_state.chat_messages = [
-        {"role": "system", "content": "You are a helpful financial assistant. Answer clearly about stock indicators like RSI, SMA, and stock chart interpretation."}
-    ]
+HF_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
+hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
+hf_headers = {"Authorization": f"Bearer {hf_token}"}
 
-MAX_CHAT_TURNS = 3  # Number of user-assistant exchanges to keep
+if "hf_chat_history" not in st.session_state:
+    st.session_state.hf_chat_history = []
 
-# Function to call OpenAI API
-def ask_gpt(messages):
+user_input_chat = st.sidebar.text_input("Your question")
+
+if user_input_chat:
+    st.session_state.hf_chat_history.append(("🧑 You", user_input_chat))
+    prompt = f"You are a helpful stock market assistant.\nUser: {user_input_chat}\nAssistant:"
+
     try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",  # use gpt-3.5-turbo for lower cost
-            messages=messages,
-            temperature=0.7,
-            max_tokens=300
+        response = requests.post(
+            HF_API_URL,
+            headers=hf_headers,
+            json={"inputs": prompt},
+            timeout=30
         )
-        return response.choices[0].message.content
+        response.raise_for_status()
+        output = response.json()[0]['generated_text']
     except Exception as e:
-        return f"Error: {str(e)}"
+        output = f"❌ Hugging Face API error: {str(e)}"
 
-# Chat input
-user_msg = st.sidebar.text_input("Your question")
+    st.session_state.hf_chat_history.append(("🤖 HuggingFace", output))
 
-if user_msg:
-    # Add user message to full session history
-    st.session_state.chat_messages.append({"role": "user", "content": user_msg})
-
-    # Trim chat history to save tokens
-    system_msg = st.session_state.chat_messages[0]
-    chat_history = st.session_state.chat_messages[1:]
-    trimmed_history = chat_history[-MAX_CHAT_TURNS * 2:]  # 2 messages per turn (user + assistant)
-
-    messages_to_send = [system_msg] + trimmed_history
-
-    # Get GPT response
-    gpt_output = ask_gpt(messages_to_send)
-    st.session_state.chat_messages.append({"role": "assistant", "content": gpt_output})
-
-# Display chat history
 st.sidebar.markdown("🧠 **Chat History**")
-for msg in st.session_state.chat_messages[1:]:  # Skip system message
-    role = "🧑 You" if msg["role"] == "user" else "🤖 GPT"
-    st.sidebar.markdown(f"**{role}:** {msg['content']}")
+for role, msg in st.session_state.hf_chat_history:
+    st.sidebar.markdown(f"**{role}:** {msg}")
