@@ -8,6 +8,7 @@ import requests
 import os
 from datetime import datetime
 import time
+import base64  # for audio feedback
 
 # -------------------------------
 # Streamlit Page Configuration
@@ -34,13 +35,13 @@ end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
 
 analyze_button = st.sidebar.button("🔍 Analyze")
 
+# Add placeholder for selected stock UI
+stock_placeholder = st.empty()
+
 if analyze_button:
     start_timer = time.time()
     with st.spinner("Analyzing breakout stocks. Please wait..."):
 
-        # -------------------------------
-        # Bollinger Band Breakout Check
-        # -------------------------------
         def detect_bollinger_breakout(df):
             if len(df) < 21:
                 return False
@@ -58,9 +59,6 @@ if analyze_button:
 
             return narrow.iloc[-1] and breakout.iloc[-1]
 
-        # -------------------------------
-        # Cached Data Download Function
-        # -------------------------------
         @st.cache_data
         def get_data(ticker, start, end):
             df = yf.download(ticker, start=start, end=end)
@@ -68,9 +66,6 @@ if analyze_button:
                 df.dropna(inplace=True)
             return df
 
-        # -------------------------------
-        # Identify Breakout Stocks
-        # -------------------------------
         breakout_stocks = []
         stocks = []
         error_occurred = False
@@ -87,9 +82,6 @@ if analyze_button:
             error_occurred = True
             st.error(f"❌ Failed to load index data: {str(e)}")
 
-        # -------------------------------
-        # UI: Display List of Breakout Stocks
-        # -------------------------------
         if error_occurred:
             st.error("❌ Error occurred during index or stock data fetch.")
         elif not stocks:
@@ -97,49 +89,57 @@ if analyze_button:
         elif not breakout_stocks:
             st.warning("⚠️ No breakout stocks found for the selected period.")
         else:
-            st.sidebar.success(f"{len(breakout_stocks)} breakout stocks found")
-            selected_stock = st.sidebar.selectbox("Select Stock for Analysis", breakout_stocks)
+            selected_stock = st.sidebar.selectbox("Select Stock for Analysis", breakout_stocks, key="stock_select")
 
-            df = get_data(selected_stock, start_date, end_date)
+            if selected_stock:
+                stock_placeholder.subheader(f"📈 {selected_stock} - Analysis")
 
-            # Calculate indicators
-            close_series = df['Close'].squeeze()
-            bb = ta.volatility.BollingerBands(close=close_series, window=20, window_dev=2)
-            df['bb_mavg'] = bb.bollinger_mavg()
-            df['bb_high'] = bb.bollinger_hband()
-            df['bb_low'] = bb.bollinger_lband()
-            df['RSI'] = ta.momentum.RSIIndicator(close=close_series, window=14).rsi()
+                df = get_data(selected_stock, start_date, end_date)
 
-            # Bollinger + Candlestick
-            st.subheader(f"📈 {selected_stock} - Bollinger Band with Close Price")
-            fig, ax = plt.subplots(figsize=(12, 6))
-            ax.plot(df.index, df['Close'], label='Close')
-            ax.plot(df.index, df['bb_mavg'], label='Middle Band', linestyle='--')
-            ax.plot(df.index, df['bb_high'], label='Upper Band', linestyle='--')
-            ax.plot(df.index, df['bb_low'], label='Lower Band', linestyle='--')
-            ax.set_title("Bollinger Bands")
-            ax.legend()
-            st.pyplot(fig)
+                close_series = df['Close'].squeeze()
+                bb = ta.volatility.BollingerBands(close=close_series, window=20, window_dev=2)
+                df['bb_mavg'] = bb.bollinger_mavg()
+                df['bb_high'] = bb.bollinger_hband()
+                df['bb_low'] = bb.bollinger_lband()
+                df['RSI'] = ta.momentum.RSIIndicator(close=close_series, window=14).rsi()
 
-            # RSI
-            st.subheader("📉 RSI Indicator")
-            fig2, ax2 = plt.subplots(figsize=(12, 3))
-            ax2.plot(df.index, df['RSI'], label='RSI', color='green')
-            ax2.axhline(70, linestyle='--', color='red')
-            ax2.axhline(30, linestyle='--', color='blue')
-            ax2.set_title("RSI (14)")
-            ax2.legend()
-            st.pyplot(fig2)
+                st.subheader(f"📈 {selected_stock} - Bollinger Band with Close Price")
+                fig, ax = plt.subplots(figsize=(12, 6))
+                ax.plot(df.index, df['Close'], label='Close')
+                ax.plot(df.index, df['bb_mavg'], label='Middle Band', linestyle='--')
+                ax.plot(df.index, df['bb_high'], label='Upper Band', linestyle='--')
+                ax.plot(df.index, df['bb_low'], label='Lower Band', linestyle='--')
+                ax.set_title("Bollinger Bands")
+                ax.legend()
+                st.pyplot(fig)
 
-            st.subheader("📄 Sample Data")
-            st.dataframe(df.tail(10))
+                st.subheader("📉 RSI Indicator")
+                fig2, ax2 = plt.subplots(figsize=(12, 3))
+                ax2.plot(df.index, df['RSI'], label='RSI', color='green')
+                ax2.axhline(70, linestyle='--', color='red')
+                ax2.axhline(30, linestyle='--', color='blue')
+                ax2.set_title("RSI (14)")
+                ax2.legend()
+                st.pyplot(fig2)
 
-            st.download_button(
-                label="⬇️ Download CSV",
-                data=df.to_csv().encode(),
-                file_name=f"{selected_stock}_data.csv",
-                mime='text/csv'
-            )
+                st.subheader("📄 Sample Data")
+                st.dataframe(df.tail(10))
+
+                st.download_button(
+                    label="⬇️ Download CSV",
+                    data=df.to_csv().encode(),
+                    file_name=f"{selected_stock}_data.csv",
+                    mime='text/csv'
+                )
+
+                audio_file = "https://www.soundjay.com/buttons/sounds/button-29.mp3"
+                b64_audio = base64.b64encode(requests.get(audio_file).content).decode()
+                audio_html = f"""
+                <audio autoplay>
+                    <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3">
+                </audio>
+                """
+                st.markdown(audio_html, unsafe_allow_html=True)
 
     elapsed = time.time() - start_timer
     st.info(f"✅ Analysis completed in {elapsed:.2f} seconds.")
