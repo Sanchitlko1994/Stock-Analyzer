@@ -19,7 +19,7 @@ import base64           # Audio encoding for playback
 
 st.set_page_config(
     page_title="Stock Analyzer Web App",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
         'Report a bug': "mailto:Sanchitbkt@gmail.com",
