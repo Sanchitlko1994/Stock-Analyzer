@@ -1,30 +1,28 @@
 # Import required libraries
-import streamlit as st  # For creating the web application interface
-import yfinance as yf   # For fetching historical stock data from Yahoo Finance
-import pandas as pd     # For data manipulation and handling
-import ta               # For technical analysis indicators like SMA and RSI
-import matplotlib.pyplot as plt  # For plotting charts and visualizations
-import requests         # For making HTTP requests (used for chatbot API call)
-import os               # For accessing environment variables (API keys)
+import streamlit as st  # Streamlit for creating the web interface
+import yfinance as yf   # yfinance for downloading stock price data
+import pandas as pd     # pandas for data manipulation
+import ta               # technical analysis library for indicators like SMA and RSI
+import matplotlib.pyplot as plt  # for plotting graphs
+import requests
+import os
 
 # -------------------------------
 # Streamlit Page Configuration
 # -------------------------------
-st.set_page_config(page_title="Stock Analyzer", layout="wide")  # Set app title and make layout wide
-st.title("📊 Stock Analyzer Web App")  # Display title at the top of the app
+st.set_page_config(page_title="Stock Analyzer", layout="wide")  # Set page title and layout
+st.title("📊 Stock Analyzer Web App")  # Title displayed on the app
 
 # -------------------------------
 # Sidebar Input Fields
 # -------------------------------
-# User inputs for stock symbol and date range from the sidebar
-user_input = st.sidebar.text_input("Stock Ticker (e.g., AAPL, TCS.NS)", "TCS")
-start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
-end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
+user_input = st.sidebar.text_input("Stock Ticker (e.g., AAPL, TCS.NS)", "TCS")  # User input for stock symbol
+start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))  # Start date for data download
+end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))  # End date for data download
 
 # -------------------------------
 # Helper Function to Format Ticker
 # -------------------------------
-# Ensures that Indian stocks get ".NS" suffix if not already present
 def format_ticker(ticker):
     if "." not in ticker:
         return ticker.strip().upper() + ".NS"
@@ -35,12 +33,11 @@ ticker = format_ticker(user_input)
 # -------------------------------
 # Data Download Function (Cached)
 # -------------------------------
-# Downloads and caches stock data to avoid redundant API calls
 @st.cache_data
 def get_data(ticker, start, end):
     df = yf.download(ticker, start=start, end=end)
     if not df.empty:
-        df = df.dropna()  # Clean missing rows if any
+        df = df.dropna()
     return df
 
 # -------------------------------
@@ -48,30 +45,24 @@ def get_data(ticker, start, end):
 # -------------------------------
 if st.sidebar.button("Analyze"):
     try:
-        data = get_data(ticker, start_date, end_date)  # Fetch historical data
+        data = get_data(ticker, start_date, end_date)
 
         if data.empty or 'Close' not in data.columns:
             st.warning(f"No valid 'Close' data found for {ticker}.")
         else:
             close_prices = data['Close']
-            if isinstance(close_prices, pd.DataFrame):  # Just in case it's 2D
+            if isinstance(close_prices, pd.DataFrame):
                 close_prices = close_prices.squeeze()
 
             if close_prices.empty or len(close_prices) < 20:
                 st.error("Not enough data to calculate indicators.")
             else:
-                # Calculate 20-day Simple Moving Average (SMA)
                 sma_20 = ta.trend.SMAIndicator(close=close_prices, window=20).sma_indicator()
-                # Calculate 14-day Relative Strength Index (RSI)
                 rsi_14 = ta.momentum.RSIIndicator(close=close_prices, window=14).rsi()
 
-                # Add calculated indicators to the original dataframe
                 data['SMA_20'] = sma_20
                 data['RSI'] = rsi_14
 
-                # -------------------------------
-                # Plot Closing Price with SMA
-                # -------------------------------
                 st.subheader(f"📈 {user_input.upper()} Price Chart with SMA")
                 fig, ax = plt.subplots(figsize=(12, 6))
                 ax.plot(data.index, data['Close'], label='Close Price')
@@ -80,27 +71,18 @@ if st.sidebar.button("Analyze"):
                 ax.legend()
                 st.pyplot(fig)
 
-                # -------------------------------
-                # Plot RSI
-                # -------------------------------
                 st.subheader("📉 RSI Indicator")
                 fig2, ax2 = plt.subplots(figsize=(12, 3))
                 ax2.plot(data.index, data['RSI'], label='RSI', color='green')
-                ax2.axhline(70, linestyle='--', color='red')   # Overbought level
-                ax2.axhline(30, linestyle='--', color='blue')  # Oversold level
+                ax2.axhline(70, linestyle='--', color='red')
+                ax2.axhline(30, linestyle='--', color='blue')
                 ax2.set_title("RSI (14)")
                 ax2.legend()
                 st.pyplot(fig2)
 
-                # -------------------------------
-                # Display Processed Data
-                # -------------------------------
                 st.subheader("📄 Sample Data")
-                st.dataframe(data.tail(10))  # Show last 10 rows
+                st.dataframe(data.tail(10))
 
-                # -------------------------------
-                # CSV Download Option
-                # -------------------------------
                 st.download_button(
                     label="⬇️ Download CSV",
                     data=data.to_csv().encode(),
@@ -109,45 +91,33 @@ if st.sidebar.button("Analyze"):
                 )
 
     except Exception as e:
-        st.error(f"❌ Error: {str(e)}")  # Display any processing error
+        st.error(f"❌ Error: {str(e)}")
 
 # -------------------------------
-# Hugging Face Chatbot Section (Compact Bottom-Right Box)
+# Hugging Face Chatbot Section
 # -------------------------------
-# Creates a floating container in the bottom-right corner for the chatbot
-with st.container():
-    spacer1, chat_col = st.columns([15, 2])  # Layout spacing
+st.sidebar.markdown("---")
+st.sidebar.subheader("💬 Ask Shweta")
 
-    with chat_col:
-        # Styling for fixed-position chat box
-        st.markdown("<div style='position:fixed; bottom:20px; right:10px; width:50px; padding:10px; border:1px solid #ccc; border-radius:10px; background-color:#f9f9f9;'>", unsafe_allow_html=True)
-        st.markdown("### 💬 Ask Shweta")  # Chatbot title
+HF_API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
+hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
+hf_headers = {"Authorization": f"Bearer {hf_token}"}
 
-        # Setup Hugging Face inference endpoint
-        HF_API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large"
-        hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
-        hf_headers = {"Authorization": f"Bearer {hf_token}"}
+user_input_chat = st.sidebar.text_input("Your question")
 
-        # Chat input field
-        user_input_chat = st.text_input("Type your question:", key="chat_input")
+if user_input_chat:
+    prompt = user_input_chat
 
-        if user_input_chat:
-            prompt = user_input_chat
-            try:
-                # Send POST request to Hugging Face API
-                response = requests.post(
-                    HF_API_URL,
-                    headers=hf_headers,
-                    json={"inputs": prompt},
-                    timeout=60
-                )
-                response.raise_for_status()
-                output = response.json()[0]['generated_text']  # Extract generated text
-            except Exception as e:
-                output = f"❌ Hugging Face API error: {str(e)}"
+    try:
+        response = requests.post(
+            HF_API_URL,
+            headers=hf_headers,
+            json={"inputs": prompt},
+            timeout=30
+        )
+        response.raise_for_status()
+        output = response.json()[0]['generated_text'].split('<|assistant|>')[-1].strip()
+    except Exception as e:
+        output = f"❌ Hugging Face API error: {str(e)}"
 
-            # Display chatbot's response
-            st.markdown(f"**🤖 Avyan:** {output}")
-
-        # Close floating chat box
-        st.markdown("</div>", unsafe_allow_html=True)
+    st.sidebar.markdown(f"**🤖 Avyan:** {output}")
