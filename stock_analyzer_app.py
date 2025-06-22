@@ -8,7 +8,6 @@ import requests
 import os
 from datetime import datetime
 import time
-import base64  # for audio feedback
 
 # -------------------------------
 # Streamlit Page Configuration
@@ -141,16 +140,6 @@ if analyze_button:
                 file_name=f"{selected_stock}_data.csv",
                 mime='text/csv'
             )
-
-            # Play audio feedback when analysis completes
-            audio_file = "https://www.soundjay.com/buttons/sounds/button-29.mp3"
-            b64_audio = base64.b64encode(requests.get(audio_file).content).decode()
-            audio_html = f"""
-            <audio autoplay>
-                <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3">
-            </audio>
-            """
-            st.markdown(audio_html, unsafe_allow_html=True)
 
     elapsed = time.time() - start_timer
     st.info(f"✅ Analysis completed in {elapsed:.2f} seconds.")
