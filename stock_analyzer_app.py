@@ -1,22 +1,20 @@
 # Import required libraries
-import streamlit as st  # Streamlit for creating the web interface
-import yfinance as yf   # yfinance for downloading stock price data
-import pandas as pd     # pandas for data manipulation
-import ta               # technical analysis library for indicators like SMA and RSI
-import matplotlib.pyplot as plt  # for plotting graphs
+import streamlit as st
+import yfinance as yf
+import pandas as pd
+import ta
+import matplotlib.pyplot as plt
 import requests
 import os
-import numpy as np
-import time
 
 # -------------------------------
 # Streamlit Page Configuration
 # -------------------------------
-st.set_page_config(page_title="Stock Analyzer", layout="wide")  # Set page title and layout
-st.title("📊 Stock Analyzer Web App")  # Title displayed on the app
+st.set_page_config(page_title="Stock Analyzer", layout="wide")
+st.title("📊 Stock Analyzer Web App")
 
 # -------------------------------
-# Helper Functions
+# NSE Helper Function to Fetch Index Stocks
 # -------------------------------
 def get_nse_index_symbols(index_name="NIFTY 50"):
     index_map = {
@@ -29,84 +27,73 @@ def get_nse_index_symbols(index_name="NIFTY 50"):
     }
     if index_name not in index_map:
         raise ValueError("Invalid index name")
-
-    index_param = index_map[index_name]
-    url = f"https://www.nseindia.com/api/equity-stockIndices?index={index_param.replace(' ', '%20')}"
+    endpoint = index_map[index_name].replace(" ", "%20")
+    url = f"https://www.nseindia.com/api/equity-stockIndices?index={endpoint}"
 
     headers = {
         "User-Agent": "Mozilla/5.0",
         "Accept-Language": "en-US,en;q=0.9",
         "Referer": "https://www.nseindia.com/"
     }
-
     session = requests.Session()
     session.get("https://www.nseindia.com", headers=headers, timeout=5)
-    response = session.get(url, headers=headers, timeout=10)
-    response.raise_for_status()
-    data = response.json()["data"]
+    resp = session.get(url, headers=headers, timeout=10)
+    resp.raise_for_status()
+    data = resp.json().get("data", [])
     return [item["symbol"] + ".NS" for item in data]
 
-def scan_breakouts(symbols, index_name):
-    results = []
+# -------------------------------
+# Detect Bollinger Band Breakouts
+# -------------------------------
+def detect_breakouts(symbols, start, end):
+    breakout_stocks = []
     for symbol in symbols:
         try:
-            df = yf.download(symbol, period="6mo", interval="1d", progress=False)
-            df.dropna(inplace=True)
-            if len(df) < 20:
+            df = yf.download(symbol, start=start, end=end)
+            if df.empty or 'Close' not in df:
                 continue
+            df = df.dropna()
+            close = df['Close']
+            indicator_bb = ta.volatility.BollingerBands(close=close, window=20, window_dev=2)
+            df['bb_bbm'] = indicator_bb.bollinger_mavg()
+            df['bb_bbh'] = indicator_bb.bollinger_hband()
+            df['bb_bbl'] = indicator_bb.bollinger_lband()
+            df['bb_width'] = df['bb_bbh'] - df['bb_bbl']
 
-            df["SMA20"] = df["Close"].rolling(20).mean()
-            df["STD"] = df["Close"].rolling(20).std()
-            df["Upper"] = df["SMA20"] + 2 * df["STD"]
-            df["Lower"] = df["SMA20"] - 2 * df["STD"]
-            df["Width"] = df["Upper"] - df["Lower"]
-
-            latest = df.iloc[-1]
-            width_percentile_20 = np.percentile(df["Width"].dropna(), 20)
-
-            if latest["Width"] <= width_percentile_20 and latest["Close"] > latest["Upper"]:
-                results.append({
-                    "Index": index_name,
-                    "Symbol": symbol,
-                    "Date": latest.name.strftime("%Y-%m-%d"),
-                    "Close": round(latest["Close"], 2),
-                    "Upper Band": round(latest["Upper"], 2),
-                    "Band Width": round(latest["Width"], 2)
-                })
-
-            time.sleep(0.5)
-        except Exception as e:
-            print(f"[{symbol}] Error: {e}")
-    return pd.DataFrame(results)
+            if df['bb_width'].iloc[-1] < df['bb_width'].quantile(0.1) and close.iloc[-1] > df['bb_bbh'].iloc[-1]:
+                breakout_stocks.append(symbol)
+        except Exception:
+            continue
+    return breakout_stocks
 
 # -------------------------------
-# Main Analysis Logic Triggered on Button Click
+# Run Breakout Scan for All Indices
 # -------------------------------
-if st.sidebar.button("Scan Breakouts"):
-    index_list = ["NIFTYBANK", "NIFTYAUTO", "NIFTYFINANCIALS", "NIFTY100", "NIFTY200", "NIFTY500"]
-    all_results = pd.DataFrame()
+index_list = ["NIFTYBANK", "NIFTYAUTO", "NIFTYFINANCIALS", "NIFTY100", "NIFTY200", "NIFTY500"]
+start_date = pd.to_datetime("2023-01-01")
+end_date = pd.to_datetime("today")
 
-    for index in index_list:
-        st.write(f"🔍 Scanning {index}...")
+all_breakouts = {}
+
+with st.spinner("Scanning for breakout stocks..."):
+    for index_name in index_list:
         try:
-            symbols = get_nse_index_symbols(index)
-            df = scan_breakouts(symbols, index)
-            if not df.empty:
-                all_results = pd.concat([all_results, df], ignore_index=True)
-        except Exception as err:
-            st.warning(f"⚠️ Failed to process {index}: {err}")
+            symbols = get_nse_index_symbols(index_name)
+            breakouts = detect_breakouts(symbols, start_date, end_date)
+            if breakouts:
+                all_breakouts[index_name] = breakouts
+        except Exception as e:
+            st.warning(f"⚠️ Failed to scan {index_name}: {e}")
 
-    if not all_results.empty:
-        st.success("✅ Breakout Stocks Found")
-        st.dataframe(all_results)
-        st.download_button(
-            label="⬇️ Download Breakout Stocks CSV",
-            data=all_results.to_csv(index=False).encode(),
-            file_name="nse_breakouts.csv",
-            mime='text/csv'
-        )
-    else:
-        st.info("📭 No breakouts found across selected indices.")
+# -------------------------------
+# Display Breakouts
+# -------------------------------
+if all_breakouts:
+    for index_name, stocks in all_breakouts.items():
+        st.subheader(f"🚀 {index_name} Breakouts")
+        st.write(", ".join(stocks))
+else:
+    st.info("No breakout stocks found.")
 
 # -------------------------------
 # Hugging Face Chatbot Section
