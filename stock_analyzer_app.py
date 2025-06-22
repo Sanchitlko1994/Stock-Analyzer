@@ -18,7 +18,7 @@ import base64           # Audio encoding for playback
 # ==============================================
 
 st.set_page_config(page_title="Stock Analyzer Web App", layout="centered",initial_sidebar_state="expanded",menu_items={
-        'Report a bug': "Email at "Sanchitbkt@gmail.com"",
+        'Report a bug': "Email at #Sanchitbkt@gmail.com#",
         'About': "This App provides for best stock analysis for different in NSE. It was founded in 2025 and co-owned by Shweta Singh"
     })
 
