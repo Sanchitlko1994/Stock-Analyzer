@@ -7,7 +7,7 @@ import os
 from openai import OpenAI
 
 # -------------------------------
-# Load OpenAI API Key (latest SDK method)
+# Load OpenAI API Key
 # -------------------------------
 openai_api_key = st.secrets.get("openai_api_key") or os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=openai_api_key)
@@ -95,7 +95,7 @@ if st.sidebar.button("Analyze"):
         st.error(f"❌ Error: {str(e)}")
 
 # -------------------------------
-# GPT-4 Chatbot Section (modern SDK)
+# GPT-4 Chatbot Section (with token-saving)
 # -------------------------------
 st.sidebar.markdown("---")
 st.sidebar.subheader("💬 Ask AI Assistant")
@@ -106,11 +106,13 @@ if "chat_messages" not in st.session_state:
         {"role": "system", "content": "You are a helpful financial assistant. Answer clearly about stock indicators like RSI, SMA, and stock chart interpretation."}
     ]
 
-# Function to ask GPT
+MAX_CHAT_TURNS = 3  # Number of user-assistant exchanges to keep
+
+# Function to call OpenAI API
 def ask_gpt(messages):
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",  # Use "gpt-3.5-turbo" if you don't have GPT-4 access
+            model="gpt-3.5-turbo",  # use gpt-3.5-turbo for lower cost
             messages=messages,
             temperature=0.7,
             max_tokens=300
@@ -123,8 +125,18 @@ def ask_gpt(messages):
 user_msg = st.sidebar.text_input("Your question")
 
 if user_msg:
+    # Add user message to full session history
     st.session_state.chat_messages.append({"role": "user", "content": user_msg})
-    gpt_output = ask_gpt(st.session_state.chat_messages)
+
+    # Trim chat history to save tokens
+    system_msg = st.session_state.chat_messages[0]
+    chat_history = st.session_state.chat_messages[1:]
+    trimmed_history = chat_history[-MAX_CHAT_TURNS * 2:]  # 2 messages per turn (user + assistant)
+
+    messages_to_send = [system_msg] + trimmed_history
+
+    # Get GPT response
+    gpt_output = ask_gpt(messages_to_send)
     st.session_state.chat_messages.append({"role": "assistant", "content": gpt_output})
 
 # Display chat history
