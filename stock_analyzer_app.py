@@ -68,7 +68,7 @@ def get_nse_index_stocks(index_name="NIFTY 50"):
     return df[df["index"] == index_name]["stock"].tolist()
 
 # ==============================================
-# 🗺️ Sidebar Inputs
+# 🗘️ Sidebar Inputs
 # ==============================================
 
 index_options = [
@@ -81,19 +81,19 @@ start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
 end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
 
 analyze_button = st.sidebar.button("🔍 Analyze")
-clear_button = st.sidebar.button("🛉 Clear Analysis")
+clear_button = st.sidebar.button("🗺 Clear Analysis")
 
-chart_options = st.sidebar.multiselect(
-    "📊 Select Charts to Display",
-    options=["Bollinger Bands", "RSI", "MACD", "Volume"],
-    default=["Bollinger Bands", "Volume"]
+indicator_choice = st.sidebar.radio(
+    "📊 Select Technical Indicator",
+    options=["None", "RSI", "MACD"],
+    index=0
 )
 
 st.sidebar.markdown("### 🎛️ Customize Indicators")
-rsi_period = st.sidebar.number_input("RSI Period", min_value=2, max_value=50, value=14)
-macd_fast = st.sidebar.number_input("MACD Fast Period", min_value=2, max_value=50, value=12)
-macd_slow = st.sidebar.number_input("MACD Slow Period", min_value=macd_fast+1, max_value=100, value=26)
-macd_signal = st.sidebar.number_input("MACD Signal Period", min_value=1, max_value=30, value=9)
+rsi_period = int(st.sidebar.number_input("RSI Period", min_value=2, max_value=50, value=14))
+macd_fast = int(st.sidebar.number_input("MACD Fast Period", min_value=2, max_value=50, value=12))
+macd_slow = int(st.sidebar.number_input("MACD Slow Period", min_value=macd_fast + 1, max_value=100, value=26))
+macd_signal = int(st.sidebar.number_input("MACD Signal Period", min_value=1, max_value=30, value=9))
 
 if "show_chat" not in st.session_state:
     st.session_state.show_chat = False
@@ -131,7 +131,7 @@ def detect_bollinger_breakout(df):
     return narrow.iloc[-1] and breakout.iloc[-1]
 
 # ==============================================
-# 📅 Get Stock Data
+# 🗕️ Get Stock Data
 # ==============================================
 
 @st.cache_data
@@ -197,37 +197,38 @@ if breakout_stocks:
     df['MACD'] = macd.macd()
     df['MACD_signal'] = macd.macd_signal()
 
-    if "Bollinger Bands" in chart_options or "Volume" in chart_options:
-        st.subheader(f"📈 {selected_stock} - Price Chart with Bollinger Bands & Volume")
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True, gridspec_kw={"height_ratios": [3, 1]})
-        ax1.plot(df.index, df['Close'], label='Close Price')
-        if "Bollinger Bands" in chart_options:
-            ax1.plot(df.index, df['bb_mavg'], label='Middle Band', linestyle='--')
-            ax1.plot(df.index, df['bb_high'], label='Upper Band', linestyle='--')
-            ax1.plot(df.index, df['bb_low'], label='Lower Band', linestyle='--')
-        ax1.set_ylabel("Price")
-        ax1.legend()
-        if "Volume" in chart_options:
-            ax2.bar(df.index, df['Volume'], color='lightblue')
-            ax2.set_ylabel("Volume")
-        st.pyplot(fig)
+    st.subheader(f"📈 {selected_stock} - Price Chart with Bollinger Bands & Volume")
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True, gridspec_kw={"height_ratios": [3, 1]})
+    ax1.plot(df.index, df['Close'], label='Close Price')
+    ax1.plot(df.index, df['bb_mavg'], label='Middle Band', linestyle='--')
+    ax1.plot(df.index, df['bb_high'], label='Upper Band', linestyle='--')
+    ax1.plot(df.index, df['bb_low'], label='Lower Band', linestyle='--')
+    ax1.set_ylabel("Price")
+    ax1.legend()
+    ax2.bar(df.index, df['Volume'], color='lightblue')
+    ax2.set_ylabel("Volume")
+    st.pyplot(fig)
 
-    if "RSI" in chart_options:
-        st.subheader("📉 RSI Indicator")
-        fig2, ax2 = plt.subplots(figsize=(12, 3))
-        ax2.plot(df.index, df['RSI'], label=f'RSI ({rsi_period})', color='green')
-        ax2.axhline(70, linestyle='--', color='red')
-        ax2.axhline(30, linestyle='--', color='blue')
-        ax2.legend()
+    if indicator_choice == "RSI":
+        st.subheader("📉 RSI Indicator with Volume")
+        fig2, (ax2a, ax2b) = plt.subplots(2, 1, figsize=(12, 6), sharex=True, gridspec_kw={"height_ratios": [2, 1]})
+        ax2a.plot(df.index, df['RSI'], label=f'RSI ({rsi_period})', color='green')
+        ax2a.axhline(70, linestyle='--', color='red')
+        ax2a.axhline(30, linestyle='--', color='blue')
+        ax2a.legend()
+        ax2b.bar(df.index, df['Volume'], color='gray')
+        ax2b.set_ylabel("Volume")
         st.pyplot(fig2)
 
-    if "MACD" in chart_options:
-        st.subheader("📉 MACD Indicator")
-        fig3, ax3 = plt.subplots(figsize=(12, 3))
-        ax3.plot(df.index, df['MACD'], label='MACD', color='purple')
-        ax3.plot(df.index, df['MACD_signal'], label='Signal Line', color='orange')
-        ax3.axhline(0, linestyle='--', color='gray')
-        ax3.legend()
+    elif indicator_choice == "MACD":
+        st.subheader("📉 MACD Indicator with Volume")
+        fig3, (ax3a, ax3b) = plt.subplots(2, 1, figsize=(12, 6), sharex=True, gridspec_kw={"height_ratios": [2, 1]})
+        ax3a.plot(df.index, df['MACD'], label='MACD', color='purple')
+        ax3a.plot(df.index, df['MACD_signal'], label='Signal Line', color='orange')
+        ax3a.axhline(0, linestyle='--', color='gray')
+        ax3a.legend()
+        ax3b.bar(df.index, df['Volume'], color='gray')
+        ax3b.set_ylabel("Volume")
         st.pyplot(fig3)
 
     st.download_button(
