@@ -30,9 +30,21 @@ st.markdown("""
         from {opacity: 0;}
         to {opacity: 1;}
     }
+    #chatbox-toggle {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background-color: #1e1e1e;
+        color: white;
+        border-radius: 12px;
+        border: 1px solid #444;
+        padding: 10px 16px;
+        cursor: pointer;
+        z-index: 999;
+    }
     #chatbox {
         position: fixed;
-        bottom: 30px;
+        bottom: 80px;
         right: 30px;
         width: 350px;
         max-height: 450px;
@@ -107,7 +119,6 @@ with st.sidebar:
     end_date = st.date_input("End Date", pd.to_datetime("today"))
     analyze_button = st.button("🔍 Analyze")
     clear_button = st.button("🧹 Clear Analysis")
-    toggle_chatbot = st.checkbox("Show Chatbot 💬", value=False)
 
 # -------------------------------
 # State Management
@@ -241,43 +252,51 @@ if breakout_stocks:
     st.info(f"✅ Analysis completed in {elapsed:.2f} seconds.")
 
 # -------------------------------
+# Floating Toggle Button
+# -------------------------------
+st.markdown("""
+    <div id="chatbox-toggle" onclick="document.getElementById('chatbox').style.display='block'">
+        💬 Ask Shweta
+    </div>
+""", unsafe_allow_html=True)
+
+# -------------------------------
 # Hugging Face Chatbot Section
 # -------------------------------
-if toggle_chatbot:
-    st.markdown("""
-        <div id="chatbox">
-            <div id="chatbox-header">
-                <span>💬 Ask Shweta</span>
-                <button onclick="document.getElementById('chatbox').style.display='none'" style="float:right;background:none;border:none;font-size:16px;">❌</button>
-            </div>
-    """, unsafe_allow_html=True)
+st.markdown("""
+<div id="chatbox" style="display:none;">
+    <div id="chatbox-header">
+        <span>💬 Ask Shweta</span>
+        <button onclick="document.getElementById('chatbox').style.display='none'" style="float:right;background:none;border:none;font-size:16px;">❌</button>
+    </div>
+""", unsafe_allow_html=True)
 
-    HF_API_URL = "https://api-inference.huggingface.co/models/bigscience/bloom-560m"
-    hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
-    hf_headers = {"Authorization": f"Bearer {hf_token}"}
+HF_API_URL = "https://api-inference.huggingface.co/models/bigscience/bloom-560m"
+hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
+hf_headers = {"Authorization": f"Bearer {hf_token}"}
 
-    with st.form("chat_form"):
-        user_input_chat = st.text_input("Your question", key="chat_input")
-        submit_chat = st.form_submit_button("Send")
+with st.form("chat_form"):
+    user_input_chat = st.text_input("Your question", key="chat_input")
+    submit_chat = st.form_submit_button("Send")
 
-    if submit_chat and user_input_chat:
-        prompt = user_input_chat
+if submit_chat and user_input_chat:
+    prompt = user_input_chat
 
-        if not hf_token:
-            st.warning("⚠️ Hugging Face API token is missing or invalid.")
-        else:
-            try:
-                response = requests.post(
-                    HF_API_URL,
-                    headers=hf_headers,
-                    json={"inputs": prompt},
-                    timeout=30
-                )
-                response.raise_for_status()
-                output = response.json()[0]['generated_text'] if isinstance(response.json(), list) else response.json()['generated_text']
-            except Exception as e:
-                output = f"❌ Hugging Face API error: {str(e)}"
+    if not hf_token:
+        st.warning("⚠️ Hugging Face API token is missing or invalid.")
+    else:
+        try:
+            response = requests.post(
+                HF_API_URL,
+                headers=hf_headers,
+                json={"inputs": prompt},
+                timeout=30
+            )
+            response.raise_for_status()
+            output = response.json()[0]['generated_text'] if isinstance(response.json(), list) else response.json()['generated_text']
+        except Exception as e:
+            output = f"❌ Hugging Face API error: {str(e)}"
 
-            st.markdown(f"**🤖 Avyan:** {output}")
+        st.markdown(f"**🤖 Avyan:** {output}")
 
-    st.markdown("</div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
