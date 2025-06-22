@@ -26,7 +26,7 @@ def get_nse_index_stocks(index_name="NIFTY 50"):
 # -------------------------------
 # Sidebar Inputs
 # -------------------------------
-index_options = ["NIFTY 50", "NIFTY 100", "NIFTY 500", "NIFTY AUTO", "NIFTY BANK", "NIFTY FINANCIAL SERVICES"]
+index_options = ["NIFTY 50", "NIFTY 100", "NIFTY 500", "NIFTY AUTO", "NIFTY BANK", "NIFTY FINANCIAL SERVICES","NIFTY HEALTHCARE","NIFTY PHARMA","NIFTY IT","NIFTY OIL & GAS"]
 selected_index = st.sidebar.selectbox("Select NSE Index", index_options)
 start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
 end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
