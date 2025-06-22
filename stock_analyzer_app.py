@@ -1,115 +1,165 @@
 # Import required libraries
 import streamlit as st
-import yfinance as yf
 import pandas as pd
-import ta
+import numpy as np
+import yfinance as yf
 import matplotlib.pyplot as plt
+import mplfinance as mpf
+import ta
 import requests
 import os
+from datetime import datetime
 
 # -------------------------------
 # Streamlit Page Configuration
 # -------------------------------
-st.set_page_config(page_title="Stock Analyzer", layout="wide")
+st.set_page_config(page_title="Stock Analyzer Web App", layout="wide")
 st.title("📊 Stock Analyzer Web App")
 
 # -------------------------------
-# NSE Helper Function to Fetch Index Stocks
+# Helper Functions
 # -------------------------------
-def get_nse_index_symbols(index_name="NIFTY 50"):
-    index_map = {
-        "NIFTYBANK": "NIFTY BANK",
-        "NIFTYAUTO": "NIFTY AUTO",
-        "NIFTYFINANCIALS": "NIFTY FINANCIAL SERVICES",
-        "NIFTY100": "NIFTY 100",
-        "NIFTY200": "NIFTY 200",
-        "NIFTY500": "NIFTY 500"
-    }
-    if index_name not in index_map:
-        raise ValueError("Invalid index name")
-    endpoint = index_map[index_name].replace(" ", "%20")
-    url = f"https://www.nseindia.com/api/equity-stockIndices?index={endpoint}"
-
+@st.cache_data
+def fetch_nse_index_stocks(index_name):
+    url = f"https://www.nseindia.com/api/equity-stockIndices?index={index_name}"
     headers = {
         "User-Agent": "Mozilla/5.0",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.nseindia.com/"
+        "Accept": "application/json"
     }
     session = requests.Session()
-    session.get("https://www.nseindia.com", headers=headers, timeout=5)
-    resp = session.get(url, headers=headers, timeout=10)
-    resp.raise_for_status()
-    data = resp.json().get("data", [])
-    return [item["symbol"] + ".NS" for item in data]
+    session.headers.update(headers)
+    try:
+        response = session.get(url)
+        response.raise_for_status()
+        data = response.json()
+        df = pd.DataFrame(data['data'])
+        return df['symbol'].tolist()
+    except Exception as e:
+        st.error(f"❌ Failed to load index data: {e}")
+        return []
+
+@st.cache_data
+def download_data(ticker, start, end):
+    df = yf.download(ticker + ".NS", start=start, end=end)
+    if not df.empty:
+        df.dropna(inplace=True)
+    return df
+
+def detect_breakout(df):
+    if df.empty or len(df) < 20:
+        return False
+    indicator_bb = ta.volatility.BollingerBands(close=df['Close'], window=20, window_dev=2)
+    df['bb_bbm'] = indicator_bb.bollinger_mavg()
+    df['bb_bbh'] = indicator_bb.bollinger_hband()
+    df['bb_bbl'] = indicator_bb.bollinger_lband()
+    df['bb_width'] = df['bb_bbh'] - df['bb_bbl']
+    narrow_band = df['bb_width'].iloc[-1] < df['bb_width'].quantile(0.25)
+    breakout = df['Close'].iloc[-1] > df['bb_bbh'].iloc[-1]
+    return narrow_band and breakout
 
 # -------------------------------
-# Detect Bollinger Band Breakouts
+# Sidebar: User Inputs
 # -------------------------------
-def detect_breakouts(symbols, start, end):
-    breakout_stocks = []
-    for symbol in symbols:
-        try:
-            df = yf.download(symbol, start=start, end=end)
-            if df.empty or 'Close' not in df:
-                continue
-            df = df.dropna()
-            close = df['Close']
-            indicator_bb = ta.volatility.BollingerBands(close=close, window=20, window_dev=2)
-            df['bb_bbm'] = indicator_bb.bollinger_mavg()
-            df['bb_bbh'] = indicator_bb.bollinger_hband()
-            df['bb_bbl'] = indicator_bb.bollinger_lband()
-            df['bb_width'] = df['bb_bbh'] - df['bb_bbl']
+st.sidebar.subheader("📌 Stock Data Analysis")
+index_options = [
+    "NIFTY 50", "NIFTY 100", "NIFTY 500",
+    "NIFTY AUTO", "NIFTY FINANCIAL SERVICES"
+]
+selected_index = st.sidebar.selectbox("Select NSE Index", index_options)
+start_date = st.sidebar.date_input("Start Date", datetime(2023, 1, 1))
+end_date = st.sidebar.date_input("End Date", datetime.today())
 
-            if df['bb_width'].iloc[-1] < df['bb_width'].quantile(0.1) and close.iloc[-1] > df['bb_bbh'].iloc[-1]:
-                breakout_stocks.append(symbol)
-        except Exception:
-            continue
-    return breakout_stocks
+# Format NSE Index URL format
+index_url_map = {
+    "NIFTY 50": "NIFTY%2050",
+    "NIFTY 100": "NIFTY%20100",
+    "NIFTY 500": "NIFTY%20500",
+    "NIFTY AUTO": "NIFTY%20AUTO",
+    "NIFTY FINANCIAL SERVICES": "NIFTY%20FINANCIAL%20SERVICES"
+}
 
 # -------------------------------
-# Run Breakout Scan for All Indices
+# Process and Detect Breakouts
 # -------------------------------
-index_list = ["NIFTYBANK", "NIFTYAUTO", "NIFTYFINANCIALS", "NIFTY100", "NIFTY200", "NIFTY500"]
-start_date = pd.to_datetime("2023-01-01")
-end_date = pd.to_datetime("today")
+st.sidebar.write("---")
+stocks = fetch_nse_index_stocks(index_url_map[selected_index])
+breakout_stocks = []
 
-all_breakouts = {}
-
-with st.spinner("Scanning for breakout stocks..."):
-    for index_name in index_list:
-        try:
-            symbols = get_nse_index_symbols(index_name)
-            breakouts = detect_breakouts(symbols, start_date, end_date)
-            if breakouts:
-                all_breakouts[index_name] = breakouts
-        except Exception as e:
-            st.warning(f"⚠️ Failed to scan {index_name}: {e}")
+progress = st.sidebar.progress(0)
+for i, symbol in enumerate(stocks):
+    df = download_data(symbol, start_date, end_date)
+    if detect_breakout(df):
+        breakout_stocks.append(symbol)
+    progress.progress((i+1)/len(stocks))
 
 # -------------------------------
-# Display Breakouts
+# Main Panel: Breakout Stock List
 # -------------------------------
-if all_breakouts:
-    for index_name, stocks in all_breakouts.items():
-        st.subheader(f"🚀 {index_name} Breakouts")
-        st.write(", ".join(stocks))
+st.subheader("🚀 Stocks with Narrow Bollinger Band and Upper Breakout")
+if breakout_stocks:
+    selected_stock = st.selectbox("Select Stock to Analyze", breakout_stocks)
+    df_selected = download_data(selected_stock, start_date, end_date)
+
+    # Recalculate Bollinger Bands & RSI
+    bb = ta.volatility.BollingerBands(close=df_selected['Close'], window=20)
+    df_selected['bb_bbm'] = bb.bollinger_mavg()
+    df_selected['bb_bbh'] = bb.bollinger_hband()
+    df_selected['bb_bbl'] = bb.bollinger_lband()
+    df_selected['RSI'] = ta.momentum.RSIIndicator(close=df_selected['Close'], window=14).rsi()
+
+    # -------------------------------
+    # Plot Bollinger Bands + Candlestick
+    # -------------------------------
+    st.subheader("📉 Bollinger Band with Candlestick")
+    mpf.plot(df_selected, type='candle', style='yahoo', volume=False,
+             addplot=[
+                 mpf.make_addplot(df_selected['bb_bbh'], color='green'),
+                 mpf.make_addplot(df_selected['bb_bbl'], color='red'),
+                 mpf.make_addplot(df_selected['bb_bbm'], color='blue')
+             ],
+             figsize=(12, 6), title=selected_stock)
+
+    # -------------------------------
+    # Plot RSI
+    # -------------------------------
+    st.subheader("📊 RSI Chart")
+    fig_rsi, ax_rsi = plt.subplots(figsize=(12, 3))
+    ax_rsi.plot(df_selected.index, df_selected['RSI'], label='RSI', color='purple')
+    ax_rsi.axhline(70, linestyle='--', color='red', label='Overbought')
+    ax_rsi.axhline(30, linestyle='--', color='blue', label='Oversold')
+    ax_rsi.set_title("RSI (14)")
+    ax_rsi.legend()
+    st.pyplot(fig_rsi)
+
+    # -------------------------------
+    # Show Last 10 Rows
+    # -------------------------------
+    st.subheader("📄 Recent Data Sample")
+    st.dataframe(df_selected.tail(10))
+
+    # -------------------------------
+    # Download Button
+    # -------------------------------
+    st.download_button(
+        label="⬇️ Download CSV",
+        data=df_selected.to_csv().encode(),
+        file_name=f"{selected_stock}_analysis.csv",
+        mime='text/csv'
+    )
 else:
-    st.info("No breakout stocks found.")
+    st.warning("No breakout stocks found for the selected index and date range.")
 
 # -------------------------------
-# Hugging Face Chatbot Section
+# Sidebar Chatbot: Hugging Face
 # -------------------------------
 st.sidebar.markdown("---")
 st.sidebar.subheader("💬 Ask Shweta")
-
 HF_API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
 hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
 hf_headers = {"Authorization": f"Bearer {hf_token}"}
-
 user_input_chat = st.sidebar.text_input("Your question")
-
 if user_input_chat:
     prompt = user_input_chat
-
     try:
         response = requests.post(
             HF_API_URL,
