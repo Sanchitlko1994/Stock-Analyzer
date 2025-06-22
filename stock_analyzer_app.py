@@ -41,7 +41,7 @@ clear_button = st.sidebar.button("🧹 Clear Analysis")
 # -------------------------------
 if clear_button:
     st.session_state.clear()
-    st.experimental_rerun()
+    st.rerun()
 
 if analyze_button:
     st.session_state["start_analysis"] = True
@@ -116,58 +116,59 @@ if st.session_state.get("start_analysis"):
 breakout_stocks = st.session_state.get("breakout_stocks", [])
 if breakout_stocks:
     selected_stock = st.sidebar.selectbox("Select Stock for Analysis", breakout_stocks)
-    st.session_state["selected_stock"] = selected_stock
+    if selected_stock != st.session_state.get("selected_stock"):
+        st.session_state["selected_stock"] = selected_stock
+        st.rerun()
 
-    if selected_stock:
-        df = get_data(selected_stock, start_date, end_date)
+    df = get_data(selected_stock, start_date, end_date)
 
-        close_series = df['Close'].squeeze()
-        bb = ta.volatility.BollingerBands(close=close_series, window=20, window_dev=2)
-        df['bb_mavg'] = bb.bollinger_mavg()
-        df['bb_high'] = bb.bollinger_hband()
-        df['bb_low'] = bb.bollinger_lband()
-        df['RSI'] = ta.momentum.RSIIndicator(close=close_series, window=14).rsi()
+    close_series = df['Close'].squeeze()
+    bb = ta.volatility.BollingerBands(close=close_series, window=20, window_dev=2)
+    df['bb_mavg'] = bb.bollinger_mavg()
+    df['bb_high'] = bb.bollinger_hband()
+    df['bb_low'] = bb.bollinger_lband()
+    df['RSI'] = ta.momentum.RSIIndicator(close=close_series, window=14).rsi()
 
-        st.subheader(f"📈 {selected_stock} - Bollinger Band with Close Price")
-        fig, ax = plt.subplots(figsize=(12, 6))
-        ax.plot(df.index, df['Close'], label='Close')
-        ax.plot(df.index, df['bb_mavg'], label='Middle Band', linestyle='--')
-        ax.plot(df.index, df['bb_high'], label='Upper Band', linestyle='--')
-        ax.plot(df.index, df['bb_low'], label='Lower Band', linestyle='--')
-        ax.set_title("Bollinger Bands")
-        ax.legend()
-        st.pyplot(fig)
+    st.subheader(f"📈 {selected_stock} - Bollinger Band with Close Price")
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.plot(df.index, df['Close'], label='Close')
+    ax.plot(df.index, df['bb_mavg'], label='Middle Band', linestyle='--')
+    ax.plot(df.index, df['bb_high'], label='Upper Band', linestyle='--')
+    ax.plot(df.index, df['bb_low'], label='Lower Band', linestyle='--')
+    ax.set_title("Bollinger Bands")
+    ax.legend()
+    st.pyplot(fig)
 
-        st.subheader("📉 RSI Indicator")
-        fig2, ax2 = plt.subplots(figsize=(12, 3))
-        ax2.plot(df.index, df['RSI'], label='RSI', color='green')
-        ax2.axhline(70, linestyle='--', color='red')
-        ax2.axhline(30, linestyle='--', color='blue')
-        ax2.set_title("RSI (14)")
-        ax2.legend()
-        st.pyplot(fig2)
+    st.subheader("📉 RSI Indicator")
+    fig2, ax2 = plt.subplots(figsize=(12, 3))
+    ax2.plot(df.index, df['RSI'], label='RSI', color='green')
+    ax2.axhline(70, linestyle='--', color='red')
+    ax2.axhline(30, linestyle='--', color='blue')
+    ax2.set_title("RSI (14)")
+    ax2.legend()
+    st.pyplot(fig2)
 
-        st.subheader("📄 Sample Data")
-        st.dataframe(df.tail(10))
+    st.subheader("📄 Sample Data")
+    st.dataframe(df.tail(10))
 
-        st.download_button(
-            label="⬇️ Download CSV",
-            data=df.to_csv().encode(),
-            file_name=f"{selected_stock}_data.csv",
-            mime='text/csv'
-        )
+    st.download_button(
+        label="⬇️ Download CSV",
+        data=df.to_csv().encode(),
+        file_name=f"{selected_stock}_data.csv",
+        mime='text/csv'
+    )
 
-        audio_file = "https://www.soundjay.com/buttons/sounds/button-29.mp3"
-        b64_audio = base64.b64encode(requests.get(audio_file).content).decode()
-        audio_html = f"""
-        <audio autoplay>
-            <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3">
-        </audio>
-        """
-        st.markdown(audio_html, unsafe_allow_html=True)
+    audio_file = "https://www.soundjay.com/buttons/sounds/button-29.mp3"
+    b64_audio = base64.b64encode(requests.get(audio_file).content).decode()
+    audio_html = f"""
+    <audio autoplay>
+        <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3">
+    </audio>
+    """
+    st.markdown(audio_html, unsafe_allow_html=True)
 
-        elapsed = time.time() - start_timer
-        st.info(f"✅ Analysis completed in {elapsed:.2f} seconds.")
+    elapsed = time.time() - start_timer
+    st.info(f"✅ Analysis completed in {elapsed:.2f} seconds.")
 
 # -------------------------------
 # Hugging Face Chatbot Section
