@@ -120,4 +120,4 @@ if user_input_chat:
     except Exception as e:
         output = f"❌ Hugging Face API error: {str(e)}"
 
-    st.sidebar.markdown(f"**🤖 HuggingFace:** {output}")
+    st.sidebar.markdown(f"**🤖 Avyan:** {output}")
