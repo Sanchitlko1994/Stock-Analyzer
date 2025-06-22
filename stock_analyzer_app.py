@@ -34,20 +34,28 @@ st.markdown("""
         position: fixed;
         bottom: 30px;
         right: 30px;
-        width: 300px;
-        padding: 15px;
-        background-color: white;
-        border: 1px solid #ccc;
-        border-radius: 8px;
+        width: 350px;
+        max-height: 450px;
+        background-color: #1e1e1e;
+        color: white;
+        border-radius: 12px;
+        border: 1px solid #444;
         z-index: 1000;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        padding: 20px;
+        overflow-y: auto;
+        font-family: 'Segoe UI', sans-serif;
+    }
+    #chatbox-header {
+        font-weight: bold;
+        margin-bottom: 10px;
         cursor: move;
+        color: #fff;
     }
     </style>
     <script>
-    // Drag logic for chatbot
     window.onload = function() {
-        const el = window.parent.document.querySelector('#chatbox')
+        const el = window.parent.document.querySelector('#chatbox');
         if (el) {
             let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
             el.onmousedown = dragMouseDown;
@@ -238,7 +246,10 @@ if breakout_stocks:
 if toggle_chatbot:
     st.markdown("""
         <div id="chatbox">
-        <h4>💬 Ask Shweta</h4>
+            <div id="chatbox-header">
+                <span>💬 Ask Shweta</span>
+                <button onclick="document.getElementById('chatbox').style.display='none'" style="float:right;background:none;border:none;font-size:16px;">❌</button>
+            </div>
     """, unsafe_allow_html=True)
 
     HF_API_URL = "https://api-inference.huggingface.co/models/bigscience/bloom-560m"
