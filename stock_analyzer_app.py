@@ -1,21 +1,25 @@
-# Import required libraries
-import streamlit as st  # Streamlit for creating the web interface
-import yfinance as yf   # yfinance for downloading stock price data
-import pandas as pd     # pandas for data manipulation
-import ta               # technical analysis library for indicators like SMA and RSI
-import matplotlib.pyplot as plt  # for plotting graphs
-import requests
-import os
-from datetime import datetime
-import time
-import base64  # for audio feedback
+# ==============================================
+# 📦 Import Required Libraries
+# ==============================================
 
-# -------------------------------
-# Streamlit Page Configuration
-# -------------------------------
+import streamlit as st  # UI framework for building web apps
+import yfinance as yf   # Financial data from Yahoo Finance
+import pandas as pd     # Data handling
+import ta               # Technical Analysis indicators (e.g., Bollinger, RSI)
+import matplotlib.pyplot as plt  # Visualization
+import requests         # HTTP requests for APIs and files
+import os               # Environment variables
+from datetime import datetime  # Date handling
+import time             # Timer for performance metrics
+import base64           # Audio encoding for playback
+
+# ==============================================
+# ⚙️ Streamlit Page Config & Styling
+# ==============================================
+
 st.set_page_config(page_title="Stock Analyzer Web App", layout="wide")
 
-# Optional CSS Fade-In Animation for smooth transition
+# CSS to add smooth transition effects
 st.markdown("""
     <style>
     .element-container:nth-child(n+4) div[data-testid="stVerticalBlock"] {
@@ -30,18 +34,23 @@ st.markdown("""
 
 st.title("📊 Stock Analyzer Web App")
 
-# -------------------------------
-# NSE Index Stock Fetch Function from GitHub CSV
-# -------------------------------
+# ==============================================
+# 📂 Function: Load Stock List from GitHub CSV
+# ==============================================
+
 @st.cache_data
 def get_nse_index_stocks(index_name="NIFTY 50"):
+    """
+    Fetch stock symbols from a CSV hosted on GitHub based on selected index.
+    """
     csv_url = "https://raw.githubusercontent.com/Sanchitlko1994/Stock-Analyzer/main/NSE%20INDEX%20STOCKS.csv"
     df = pd.read_csv(csv_url)
     return df[df["index"] == index_name]["stock"].tolist()
 
-# -------------------------------
-# Sidebar Inputs
-# -------------------------------
+# ==============================================
+# 🧭 Sidebar UI Elements for Input
+# ==============================================
+
 index_options = [
     "NIFTY 50", "NIFTY 100", "NIFTY 500", "NIFTY AUTO", "NIFTY BANK",
     "NIFTY FINANCIAL SERVICES", "NIFTY HEALTHCARE", "NIFTY PHARMA",
@@ -51,62 +60,77 @@ selected_index = st.sidebar.selectbox("Select NSE Index", index_options)
 start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
 end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
 
+# Main control buttons
 analyze_button = st.sidebar.button("🔍 Analyze")
 clear_button = st.sidebar.button("🧹 Clear Analysis")
 
-# Chatbot toggle button in sidebar
+# Chat toggle button state
 if "show_chat" not in st.session_state:
     st.session_state.show_chat = False
 
 if st.sidebar.button("💬 Show/Hide Chatbot"):
     st.session_state.show_chat = not st.session_state.show_chat
 
-# -------------------------------
-# State Management
-# -------------------------------
+# ==============================================
+# 🧠 State Management for App Logic
+# ==============================================
+
 if clear_button:
+    # Reset the entire app state
     st.session_state.clear()
     st.rerun()
 
 if analyze_button:
+    # Start new analysis session
     st.session_state["start_analysis"] = True
-    st.session_state["selected_stock"] = None  # Reset selection state on new analysis
+    st.session_state["selected_stock"] = None  # Reset previously selected stock
 
-# -------------------------------
-# Detect Bollinger Breakout Function
-# -------------------------------
+# ==============================================
+# 📈 Function: Detect Bollinger Band Breakout
+# ==============================================
+
 def detect_bollinger_breakout(df):
+    """
+    Detects breakout conditions using Bollinger Bands.
+    Returns True if last close breaks above upper band after narrow band.
+    """
     if len(df) < 21:
         return False
 
     close_series = df['Close'].squeeze()
     bb = ta.volatility.BollingerBands(close=close_series, window=20, window_dev=2)
-    bb_bbm = bb.bollinger_mavg()
     bb_bbh = bb.bollinger_hband()
     bb_bbl = bb.bollinger_lband()
     bb_width = bb_bbh - bb_bbl
 
+    # Mark narrow bands and check for breakout
     df['bb_width'] = bb_width
     narrow = bb_width < bb_width.quantile(0.2)
     breakout = close_series > bb_bbh
 
     return narrow.iloc[-1] and breakout.iloc[-1]
 
-# -------------------------------
-# Data Fetching
-# -------------------------------
+# ==============================================
+# 🔄 Cached Function: Get Stock Data from Yahoo
+# ==============================================
+
 @st.cache_data
 def get_data(ticker, start, end):
+    """
+    Download historical OHLC data for given ticker.
+    """
     df = yf.download(ticker, start=start, end=end)
     if not df.empty:
         df.dropna(inplace=True)
     return df
 
-# -------------------------------
-# Analyze Button Logic
-# -------------------------------
+# ==============================================
+# 🚀 Execute Analysis if Triggered
+# ==============================================
+
 if st.session_state.get("start_analysis"):
-    start_timer = time.time()
+    start_timer = time.time()  # Start timing
+
     with st.spinner("Analyzing breakout stocks. Please wait..."):
         breakout_stocks = []
         stocks = []
@@ -115,16 +139,22 @@ if st.session_state.get("start_analysis"):
         try:
             stocks = get_nse_index_stocks(selected_index)
             progress_bar = st.progress(0, text="Scanning stocks...")
+
             for i, stock in enumerate(stocks):
                 df = get_data(stock, start_date, end_date)
                 if not df.empty and detect_bollinger_breakout(df):
                     breakout_stocks.append(stock)
+
+                # Update progress
                 progress_bar.progress((i + 1) / len(stocks), text=f"Analyzing {stock} ({i + 1}/{len(stocks)})")
+
             progress_bar.empty()
+
         except Exception as e:
             error_occurred = True
             st.error(f"❌ Failed to load index data: {str(e)}")
 
+        # Display results
         if error_occurred:
             st.error("❌ Error occurred during index or stock data fetch.")
         elif not stocks:
@@ -135,16 +165,22 @@ if st.session_state.get("start_analysis"):
             st.session_state["breakout_stocks"] = breakout_stocks
             st.success(f"✅ {len(breakout_stocks)} breakout stocks found.")
 
-# -------------------------------
-# Stock Analysis UI (Always available after analysis)
-# -------------------------------
+# ==============================================
+# 📊 Visualization Section (Chart + RSI)
+# ==============================================
+
 breakout_stocks = st.session_state.get("breakout_stocks", [])
 if breakout_stocks:
-    selected_stock = st.sidebar.selectbox("Select Stock for Analysis", breakout_stocks, index=breakout_stocks.index(st.session_state.get("selected_stock", breakout_stocks[0])) if st.session_state.get("selected_stock") in breakout_stocks else 0)
+    selected_stock = st.sidebar.selectbox(
+        "Select Stock for Analysis",
+        breakout_stocks,
+        index=breakout_stocks.index(st.session_state.get("selected_stock", breakout_stocks[0])) if st.session_state.get("selected_stock") in breakout_stocks else 0
+    )
     st.session_state["selected_stock"] = selected_stock
 
     df = get_data(selected_stock, start_date, end_date)
 
+    # Calculate Indicators
     close_series = df['Close'].squeeze()
     bb = ta.volatility.BollingerBands(close=close_series, window=20, window_dev=2)
     df['bb_mavg'] = bb.bollinger_mavg()
@@ -152,6 +188,7 @@ if breakout_stocks:
     df['bb_low'] = bb.bollinger_lband()
     df['RSI'] = ta.momentum.RSIIndicator(close=close_series, window=14).rsi()
 
+    # 📈 Bollinger Chart
     st.subheader(f"📈 {selected_stock} - Bollinger Band with Close Price")
     fig, ax = plt.subplots(figsize=(12, 6))
     ax.plot(df.index, df['Close'], label='Close')
@@ -162,6 +199,7 @@ if breakout_stocks:
     ax.legend()
     st.pyplot(fig)
 
+    # 📉 RSI Chart
     st.subheader("📉 RSI Indicator")
     fig2, ax2 = plt.subplots(figsize=(12, 3))
     ax2.plot(df.index, df['RSI'], label='RSI', color='green')
@@ -171,9 +209,7 @@ if breakout_stocks:
     ax2.legend()
     st.pyplot(fig2)
 
-    ##st.subheader("📄 Sample Data")
-    ##st.dataframe(df.tail(10))
-
+    # 📎 Download CSV Button
     st.download_button(
         label="⬇️ Download CSV",
         data=df.to_csv().encode(),
@@ -181,6 +217,7 @@ if breakout_stocks:
         mime='text/csv'
     )
 
+    # 🔊 Audio Feedback
     audio_file = "https://www.soundjay.com/buttons/sounds/button-29.mp3"
     b64_audio = base64.b64encode(requests.get(audio_file).content).decode()
     audio_html = f"""
@@ -190,12 +227,14 @@ if breakout_stocks:
     """
     st.markdown(audio_html, unsafe_allow_html=True)
 
+    # ⏱️ Time Elapsed
     elapsed = time.time() - start_timer
     st.info(f"✅ Analysis completed in {elapsed:.2f} seconds.")
 
-# -------------------------------
-# Hugging Face Chatbot Section
-# -------------------------------
+# ==============================================
+# 🤖 Chatbot: Ask Shweta (Toggle-able)
+# ==============================================
+
 if st.session_state.show_chat:
     st.sidebar.markdown("---")
     st.sidebar.subheader("💬 Ask Shweta")
@@ -204,13 +243,13 @@ if st.session_state.show_chat:
     hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
     hf_headers = {"Authorization": f"Bearer {hf_token}"}
 
+    # Chat Form Input
     with st.sidebar.form("chat_form"):
         user_input_chat = st.text_input("Your question", key="chat_input")
         submit_chat = st.form_submit_button("Send")
 
+    # Chat Handling
     if submit_chat and user_input_chat:
-        prompt = user_input_chat
-
         if not hf_token:
             st.sidebar.warning("⚠️ Hugging Face API token is missing or invalid.")
         else:
@@ -218,7 +257,7 @@ if st.session_state.show_chat:
                 response = requests.post(
                     HF_API_URL,
                     headers=hf_headers,
-                    json={"inputs": prompt},
+                    json={"inputs": user_input_chat},
                     timeout=30
                 )
                 response.raise_for_status()
