@@ -7,7 +7,7 @@ import os
 from openai import OpenAI
 
 # -------------------------------
-# Load OpenAI API Key
+# Load OpenAI API Key (latest SDK method)
 # -------------------------------
 openai_api_key = st.secrets.get("openai_api_key") or os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=openai_api_key)
@@ -15,17 +15,16 @@ client = OpenAI(api_key=openai_api_key)
 # -------------------------------
 # Page Config
 # -------------------------------
-st.set_page_config(page_title="📊 Stock Analyzer + AI", layout="wide")
+st.set_page_config(page_title="📊 Stock Analyzer + GPT Chatbot", layout="wide")
 st.title("📊 Stock Analyzer with GPT-4 Chatbot")
 
 # -------------------------------
-# Sidebar Inputs
+# Sidebar: Inputs
 # -------------------------------
 user_input = st.sidebar.text_input("Stock Ticker (e.g., AAPL, TCS.NS)", "TCS")
 start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
 end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
 
-# Format ticker
 def format_ticker(ticker):
     if "." not in ticker:
         return ticker.strip().upper() + ".NS"
@@ -33,7 +32,9 @@ def format_ticker(ticker):
 
 ticker = format_ticker(user_input)
 
-# Cache yFinance download
+# -------------------------------
+# Cache data download
+# -------------------------------
 @st.cache_data
 def get_data(ticker, start, end):
     df = yf.download(ticker, start=start, end=end)
@@ -42,7 +43,7 @@ def get_data(ticker, start, end):
     return df
 
 # -------------------------------
-# Run Analysis
+# Analyze button logic
 # -------------------------------
 if st.sidebar.button("Analyze"):
     try:
@@ -94,41 +95,40 @@ if st.sidebar.button("Analyze"):
         st.error(f"❌ Error: {str(e)}")
 
 # -------------------------------
-# Chatbot Sidebar (GPT-4)
+# GPT-4 Chatbot Section (modern SDK)
 # -------------------------------
 st.sidebar.markdown("---")
 st.sidebar.subheader("💬 Ask AI Assistant")
 
-# Initialize message history
+# Chat history memory
 if "chat_messages" not in st.session_state:
     st.session_state.chat_messages = [
-        {"role": "system", "content": "You are a helpful financial assistant. Explain RSI, SMA, price charts, and stock analysis clearly."}
+        {"role": "system", "content": "You are a helpful financial assistant. Answer clearly about stock indicators like RSI, SMA, and stock chart interpretation."}
     ]
 
-# Input box for question
-user_question = st.sidebar.text_input("Your question")
-
-# Ask GPT-4
-def ask_openai(messages):
+# Function to ask GPT
+def ask_gpt(messages):
     try:
         response = client.chat.completions.create(
-            model="gpt-4",  # Use "gpt-3.5-turbo" if GPT-4 not available
+            model="gpt-4",  # Use "gpt-3.5-turbo" if you don't have GPT-4 access
             messages=messages,
             temperature=0.7,
             max_tokens=300
         )
         return response.choices[0].message.content
     except Exception as e:
-        return f"Error from OpenAI: {str(e)}"
+        return f"Error: {str(e)}"
 
-# Handle chat interaction
-if user_question:
-    st.session_state.chat_messages.append({"role": "user", "content": user_question})
-    gpt_reply = ask_openai(st.session_state.chat_messages)
-    st.session_state.chat_messages.append({"role": "assistant", "content": gpt_reply})
+# Chat input
+user_msg = st.sidebar.text_input("Your question")
 
-# Display conversation
+if user_msg:
+    st.session_state.chat_messages.append({"role": "user", "content": user_msg})
+    gpt_output = ask_gpt(st.session_state.chat_messages)
+    st.session_state.chat_messages.append({"role": "assistant", "content": gpt_output})
+
+# Display chat history
 st.sidebar.markdown("🧠 **Chat History**")
-for msg in st.session_state.chat_messages[1:]:  # Skip system prompt
-    speaker = "🧑 You" if msg["role"] == "user" else "🤖 GPT"
-    st.sidebar.markdown(f"**{speaker}:** {msg['content']}")
+for msg in st.session_state.chat_messages[1:]:  # Skip system message
+    role = "🧑 You" if msg["role"] == "user" else "🤖 GPT"
+    st.sidebar.markdown(f"**{role}:** {msg['content']}")
