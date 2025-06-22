@@ -15,24 +15,13 @@ st.set_page_config(page_title="Stock Analyzer Web App", layout="wide")  # Set pa
 st.title("📊 Stock Analyzer Web App")  # Title displayed on the app
 
 # -------------------------------
-# NSE Index Stock Fetch Function
+# NSE Index Stock Fetch Function from GitHub CSV
 # -------------------------------
+@st.cache_data
 def get_nse_index_stocks(index_name="NIFTY 50"):
-    index_url = f"https://www.nseindia.com/api/equity-stockIndices?index={index_name.replace(' ', '%20')}"
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.nseindia.com/",
-    }
-    session = requests.Session()
-    session.headers.update(headers)
-    session.get("https://www.nseindia.com", timeout=10)
-    response = session.get(index_url, timeout=10)
-    response.raise_for_status()
-    data = response.json()
-    stocks = [item["symbol"] + ".NS" for item in data["data"]]
-    return stocks
+    csv_url = "https://raw.githubusercontent.com/sanchitsingh999/nifty-index-stocks/main/nifty_index_stocks.csv"
+    df = pd.read_csv(csv_url)
+    return df[df["index"] == index_name]["stock"].tolist()
 
 # -------------------------------
 # Sidebar Inputs
