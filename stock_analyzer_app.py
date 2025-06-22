@@ -94,20 +94,20 @@ if st.sidebar.button("Analyze"):
         st.error(f"❌ Error: {str(e)}")
 
 # -------------------------------
-# Hugging Face Chatbot Section (Bottom-Right)
+# Hugging Face Chatbot Section (Compact Bottom-Right Box)
 # -------------------------------
 with st.container():
-    col1, col2 = st.columns([3, 1])
+    spacer1, chat_col = st.columns([8, 2])
 
-    with col2:
-        st.markdown("---")
-        st.subheader("💬 Ask Shweta")
+    with chat_col:
+        st.markdown("<div style='position:fixed; bottom:10px; right:10px; width:300px; padding:10px; border:1px solid #ccc; border-radius:10px; background-color:#f9f9f9;'>", unsafe_allow_html=True)
+        st.markdown("### 💬 Ask Shweta")
 
         HF_API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large"
         hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
         hf_headers = {"Authorization": f"Bearer {hf_token}"}
 
-        user_input_chat = st.text_input("Your question", key="chat_input")
+        user_input_chat = st.text_input("Type your question:", key="chat_input")
 
         if user_input_chat:
             prompt = user_input_chat
@@ -125,3 +125,5 @@ with st.container():
                 output = f"❌ Hugging Face API error: {str(e)}"
 
             st.markdown(f"**🤖 Avyan:** {output}")
+
+        st.markdown("</div>", unsafe_allow_html=True)
