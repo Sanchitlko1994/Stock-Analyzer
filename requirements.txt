@@ -1,7 +1,8 @@
-streamlit==1.10
+streamlit
 streamlit-authenticator==0.2.3
 yfinance
 ta
+ta==0.10.2
 matplotlib
 pandas
 bcrypt
