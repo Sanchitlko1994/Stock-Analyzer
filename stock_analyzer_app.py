@@ -3,27 +3,29 @@ import yfinance as yf
 import pandas as pd
 import ta
 import matplotlib.pyplot as plt
-import openai
 import os
+from openai import OpenAI
 
 # -------------------------------
-# Set OpenAI API Key (securely)
+# Load OpenAI API Key
 # -------------------------------
-openai.api_key = st.secrets.get("openai_api_key") or os.getenv("OPENAI_API_KEY")
+openai_api_key = st.secrets.get("openai_api_key") or os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=openai_api_key)
 
 # -------------------------------
-# Page Configuration
+# Page Config
 # -------------------------------
-st.set_page_config(page_title="Stock Analyzer + AI", layout="wide")
-st.title("📊 Stock Analyzer with GPT Chatbot")
+st.set_page_config(page_title="📊 Stock Analyzer + AI", layout="wide")
+st.title("📊 Stock Analyzer with GPT-4 Chatbot")
 
 # -------------------------------
-# Sidebar - Stock Inputs
+# Sidebar Inputs
 # -------------------------------
 user_input = st.sidebar.text_input("Stock Ticker (e.g., AAPL, TCS.NS)", "TCS")
 start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
 end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
 
+# Format ticker
 def format_ticker(ticker):
     if "." not in ticker:
         return ticker.strip().upper() + ".NS"
@@ -31,6 +33,7 @@ def format_ticker(ticker):
 
 ticker = format_ticker(user_input)
 
+# Cache yFinance download
 @st.cache_data
 def get_data(ticker, start, end):
     df = yf.download(ticker, start=start, end=end)
@@ -39,7 +42,7 @@ def get_data(ticker, start, end):
     return df
 
 # -------------------------------
-# Stock Analyzer Logic
+# Run Analysis
 # -------------------------------
 if st.sidebar.button("Analyze"):
     try:
@@ -91,40 +94,41 @@ if st.sidebar.button("Analyze"):
         st.error(f"❌ Error: {str(e)}")
 
 # -------------------------------
-# AI Chatbot Powered by GPT
+# Chatbot Sidebar (GPT-4)
 # -------------------------------
 st.sidebar.markdown("---")
 st.sidebar.subheader("💬 Ask AI Assistant")
 
-# Chat history state
+# Initialize message history
 if "chat_messages" not in st.session_state:
     st.session_state.chat_messages = [
-        {"role": "system", "content": "You are a helpful financial assistant. Explain concepts like RSI, SMA, stock charts, etc. Be clear and concise."}
+        {"role": "system", "content": "You are a helpful financial assistant. Explain RSI, SMA, price charts, and stock analysis clearly."}
     ]
 
-# User input
+# Input box for question
 user_question = st.sidebar.text_input("Your question")
 
-# Send question to GPT and get response
+# Ask GPT-4
 def ask_openai(messages):
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",  # or "gpt-3.5-turbo"
+        response = client.chat.completions.create(
+            model="gpt-4",  # Use "gpt-3.5-turbo" if GPT-4 not available
             messages=messages,
             temperature=0.7,
             max_tokens=300
         )
-        return response.choices[0].message["content"]
+        return response.choices[0].message.content
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"Error from OpenAI: {str(e)}"
 
-# Process user input
+# Handle chat interaction
 if user_question:
     st.session_state.chat_messages.append({"role": "user", "content": user_question})
     gpt_reply = ask_openai(st.session_state.chat_messages)
     st.session_state.chat_messages.append({"role": "assistant", "content": gpt_reply})
 
-# Display chat history
-for msg in st.session_state.chat_messages[1:]:  # skip system message
+# Display conversation
+st.sidebar.markdown("🧠 **Chat History**")
+for msg in st.session_state.chat_messages[1:]:  # Skip system prompt
     speaker = "🧑 You" if msg["role"] == "user" else "🤖 GPT"
     st.sidebar.markdown(f"**{speaker}:** {msg['content']}")
