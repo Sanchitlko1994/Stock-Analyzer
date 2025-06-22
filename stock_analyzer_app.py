@@ -116,7 +116,7 @@ if st.sidebar.button("Analyze"):
 # -------------------------------
 # Creates a floating container in the bottom-right corner for the chatbot
 with st.container():
-    spacer1, chat_col = st.columns([8, 2])  # Layout spacing
+    spacer1, chat_col = st.columns([8, 3])  # Layout spacing
 
     with chat_col:
         # Styling for fixed-position chat box
