@@ -88,16 +88,16 @@ if "show_indicator_settings" not in st.session_state:
 if "show_indicator_chart" not in st.session_state:
     st.session_state.show_indicator_chart = False
 
-if st.sidebar.button("📃 Show Customized Options"):
+if st.sidebar.button("📃 Customized Options"):
     st.session_state.show_indicator_settings = not st.session_state.show_indicator_settings
 
-if st.sidebar.button("📊 Show RSI/MACD Chart"):
+if st.sidebar.button("📊 Technical Chart"):
     st.session_state.show_indicator_chart = not st.session_state.show_indicator_chart
 
 if st.session_state.show_indicator_chart:
     indicator_choice = st.sidebar.radio(
-        "📊 Select Technical Indicator",
-        options=["None", "RSI", "MACD"],
+        "📊 Technical Indicator",
+        options=["RSI", "MACD"],
         index=0
     )
 else:
