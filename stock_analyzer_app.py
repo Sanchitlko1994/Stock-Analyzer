@@ -192,9 +192,11 @@ HF_API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7
 hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
 hf_headers = {"Authorization": f"Bearer {hf_token}"}
 
-user_input_chat = st.sidebar.text_input("Your question")
+with st.sidebar.form("chat_form"):
+    user_input_chat = st.text_input("Your question", key="chat_input")
+    submit_chat = st.form_submit_button("Send")
 
-if user_input_chat:
+if submit_chat and user_input_chat:
     prompt = user_input_chat
 
     try:
