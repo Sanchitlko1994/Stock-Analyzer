@@ -5,4 +5,4 @@ ta
 matplotlib
 pandas
 bcrypt
-pip install openai
+openai
