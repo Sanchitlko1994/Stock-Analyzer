@@ -81,7 +81,7 @@ start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
 end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
 
 analyze_button = st.sidebar.button("🔍 Analyze")
-clear_button = st.sidebar.button("🗺 Clear Analysis")
+clear_button = st.sidebar.button("🗾 Clear Analysis")
 
 indicator_choice = st.sidebar.radio(
     "📊 Select Technical Indicator",
@@ -131,7 +131,7 @@ def detect_bollinger_breakout(df):
     return narrow.iloc[-1] and breakout.iloc[-1]
 
 # ==============================================
-# 🗕️ Get Stock Data
+# 🗅️ Get Stock Data
 # ==============================================
 
 @st.cache_data
@@ -186,8 +186,10 @@ if breakout_stocks:
     st.session_state["selected_stock"] = selected_stock
 
     df = get_data(selected_stock, start_date, end_date)
-    close_series = df['Close'].squeeze()
+    df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
+    df['Volume'].fillna(0, inplace=True)
 
+    close_series = df['Close'].squeeze()
     bb = ta.volatility.BollingerBands(close=close_series, window=20, window_dev=2)
     df['bb_mavg'] = bb.bollinger_mavg()
     df['bb_high'] = bb.bollinger_hband()
