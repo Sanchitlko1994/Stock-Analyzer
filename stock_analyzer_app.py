@@ -17,7 +17,7 @@ import base64           # Audio encoding for playback
 # ⚙️ Streamlit Page Config & Styling
 # ==============================================
 
-st.set_page_config(page_title="Stock Analyzer Web App", layout="wide")
+st.set_page_config(page_title="Stock Analyzer Web App", layout="wide",initial_sidebar_state="expanded")
 
 # CSS to add smooth transition effects
 st.markdown("""
