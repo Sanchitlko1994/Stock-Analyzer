@@ -188,7 +188,7 @@ if breakout_stocks:
 st.sidebar.markdown("---")
 st.sidebar.subheader("💬 Ask Shweta")
 
-HF_API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
+HF_API_URL = "https://api-inference.huggingface.co/models/bigscience/bloom-560m"
 hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
 hf_headers = {"Authorization": f"Bearer {hf_token}"}
 
@@ -199,16 +199,19 @@ with st.sidebar.form("chat_form"):
 if submit_chat and user_input_chat:
     prompt = user_input_chat
 
-    try:
-        response = requests.post(
-            HF_API_URL,
-            headers=hf_headers,
-            json={"inputs": prompt},
-            timeout=30
-        )
-        response.raise_for_status()
-        output = response.json()[0]['generated_text'] if isinstance(response.json(), list) else response.json()['generated_text']
-    except Exception as e:
-        output = f"❌ Hugging Face API error: {str(e)}"
+    if not hf_token:
+        st.sidebar.warning("⚠️ Hugging Face API token is missing or invalid.")
+    else:
+        try:
+            response = requests.post(
+                HF_API_URL,
+                headers=hf_headers,
+                json={"inputs": prompt},
+                timeout=30
+            )
+            response.raise_for_status()
+            output = response.json()[0]['generated_text'] if isinstance(response.json(), list) else response.json()['generated_text']
+        except Exception as e:
+            output = f"❌ Hugging Face API error: {str(e)}"
 
-    st.sidebar.markdown(f"**🤖 Avyan:** {output}")
+        st.sidebar.markdown(f"**🤖 Avyan:** {output}")
