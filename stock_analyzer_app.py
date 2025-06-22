@@ -73,20 +73,27 @@ if analyze_button:
         # -------------------------------
         breakout_stocks = []
         stocks = []
+        error_occurred = False
         try:
             stocks = get_nse_index_stocks(selected_index)
-            for stock in stocks:
+            progress_bar = st.progress(0, text="Scanning stocks...")
+            for i, stock in enumerate(stocks):
                 df = get_data(stock, start_date, end_date)
                 if not df.empty and detect_bollinger_breakout(df):
                     breakout_stocks.append(stock)
+                progress_bar.progress((i + 1) / len(stocks), text=f"Analyzing {stock} ({i + 1}/{len(stocks)})")
+            progress_bar.empty()
         except Exception as e:
+            error_occurred = True
             st.error(f"❌ Failed to load index data: {str(e)}")
 
         # -------------------------------
         # UI: Display List of Breakout Stocks
         # -------------------------------
-        if not stocks:
-            st.error("❌ Failed to load index data: No stocks fetched from selected index.")
+        if error_occurred:
+            st.error("❌ Error occurred during index or stock data fetch.")
+        elif not stocks:
+            st.error("❌ No stocks found for selected index.")
         elif not breakout_stocks:
             st.warning("⚠️ No breakout stocks found for the selected period.")
         else:
