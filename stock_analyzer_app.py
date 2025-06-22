@@ -97,19 +97,15 @@ if st.sidebar.button("Analyze"):
 # Hugging Face Chatbot Section
 # -------------------------------
 st.sidebar.markdown("---")
-st.sidebar.subheader("💬 Ask Hugging Face Assistant")
+st.sidebar.subheader("💬 Ask Shweta")
 
 HF_API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
 hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
 hf_headers = {"Authorization": f"Bearer {hf_token}"}
 
-if "hf_chat_history" not in st.session_state:
-    st.session_state.hf_chat_history = []
-
 user_input_chat = st.sidebar.text_input("Your question")
 
 if user_input_chat:
-    st.session_state.hf_chat_history.append(("👤 You", user_input_chat))
     prompt = f"<|system|>\nYou are a helpful financial assistant.\n<|user|>\n{user_input_chat}\n<|assistant|>"
 
     try:
@@ -124,8 +120,4 @@ if user_input_chat:
     except Exception as e:
         output = f"❌ Hugging Face API error: {str(e)}"
 
-    st.session_state.hf_chat_history.append(("🤖 HuggingFace", output))
-
-st.sidebar.markdown("🧠 **Chat History**")
-for role, msg in st.session_state.hf_chat_history:
-    st.sidebar.markdown(f"**{role}:** {msg}")
+    st.sidebar.markdown(f"**🤖 HuggingFace:** {output}")
