@@ -1,4 +1,4 @@
-upgrade streamlit
+streamlit==1.10
 streamlit-authenticator==0.2.3
 yfinance
 ta
