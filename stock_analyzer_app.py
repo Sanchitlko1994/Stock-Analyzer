@@ -188,7 +188,7 @@ if breakout_stocks:
 st.sidebar.markdown("---")
 st.sidebar.subheader("💬 Ask Shweta")
 
-HF_API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
+HF_API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
 hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
 hf_headers = {"Authorization": f"Bearer {hf_token}"}
 
@@ -207,7 +207,7 @@ if submit_chat and user_input_chat:
             timeout=30
         )
         response.raise_for_status()
-        output = response.json()[0]['generated_text'].split('<|assistant|>')[-1].strip()
+        output = response.json()[0]['generated_text'] if isinstance(response.json(), list) else response.json()['generated_text']
     except Exception as e:
         output = f"❌ Hugging Face API error: {str(e)}"
 
