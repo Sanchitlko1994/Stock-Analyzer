@@ -186,7 +186,7 @@ if breakout_stocks:
     st.session_state["selected_stock"] = selected_stock
 
     df = get_data(selected_stock, start_date, end_date)
-    df['Volume'] = pd.to_numeric(df['Volume'].copy(), errors='coerce')
+    df['Volume'] = pd.to_numeric(df['Volume'].astype(str), errors='coerce')
     df['Volume'].fillna(0, inplace=True)
 
     close_series = df['Close'].squeeze()
