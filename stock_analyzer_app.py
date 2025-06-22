@@ -15,9 +15,14 @@ import base64  # for audio feedback
 # -------------------------------
 st.set_page_config(page_title="Stock Analyzer Web App", layout="wide")
 
-# Optional CSS Fade-In Animation for smooth transition
+# Optional CSS Fade-In Animation and Sidebar on Right
 st.markdown("""
     <style>
+    [data-testid="stSidebar"] {
+        order: 2;
+        border-left: 1px solid #ccc;
+        border-right: none;
+    }
     .element-container:nth-child(n+4) div[data-testid="stVerticalBlock"] {
         animation: fadeIn 0.6s ease-in-out;
     }
@@ -42,13 +47,13 @@ def get_nse_index_stocks(index_name="NIFTY 50"):
 # -------------------------------
 # Sidebar Inputs
 # -------------------------------
-index_options = ["NIFTY 50", "NIFTY 100", "NIFTY 500", "NIFTY AUTO", "NIFTY BANK", "NIFTY FINANCIAL SERVICES","NIFTY HEALTHCARE","NIFTY PHARMA","NIFTY IT","NIFTY OIL & GAS"]
-selected_index = st.sidebar.selectbox("Select NSE Index", index_options)
-start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
-end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
-
-analyze_button = st.sidebar.button("🔍 Analyze")
-clear_button = st.sidebar.button("🧹 Clear Analysis")
+with st.sidebar:
+    index_options = ["NIFTY 50", "NIFTY 100", "NIFTY 500", "NIFTY AUTO", "NIFTY BANK", "NIFTY FINANCIAL SERVICES","NIFTY HEALTHCARE","NIFTY PHARMA","NIFTY IT","NIFTY OIL & GAS"]
+    selected_index = st.selectbox("Select NSE Index", index_options)
+    start_date = st.date_input("Start Date", pd.to_datetime("2023-01-01"))
+    end_date = st.date_input("End Date", pd.to_datetime("today"))
+    analyze_button = st.button("🔍 Analyze")
+    clear_button = st.button("🧹 Clear Analysis")
 
 # -------------------------------
 # State Management
@@ -59,7 +64,7 @@ if clear_button:
 
 if analyze_button:
     st.session_state["start_analysis"] = True
-    st.session_state["selected_stock"] = None  # Reset selection state on new analysis
+    st.session_state["selected_stock"] = None
 
 # -------------------------------
 # Detect Bollinger Breakout Function
@@ -70,7 +75,6 @@ def detect_bollinger_breakout(df):
 
     close_series = df['Close'].squeeze()
     bb = ta.volatility.BollingerBands(close=close_series, window=20, window_dev=2)
-    bb_bbm = bb.bollinger_mavg()
     bb_bbh = bb.bollinger_hband()
     bb_bbl = bb.bollinger_lband()
     bb_width = bb_bbh - bb_bbl
@@ -185,33 +189,34 @@ if breakout_stocks:
 # -------------------------------
 # Hugging Face Chatbot Section
 # -------------------------------
-st.sidebar.markdown("---")
-st.sidebar.subheader("💬 Ask Shweta")
+with st.sidebar:
+    st.markdown("---")
+    st.subheader("💬 Ask Shweta")
 
-HF_API_URL = "https://api-inference.huggingface.co/models/bigscience/bloom-560m"
-hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
-hf_headers = {"Authorization": f"Bearer {hf_token}"}
+    HF_API_URL = "https://api-inference.huggingface.co/models/bigscience/bloom-560m"
+    hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
+    hf_headers = {"Authorization": f"Bearer {hf_token}"}
 
-with st.sidebar.form("chat_form"):
-    user_input_chat = st.text_input("Your question", key="chat_input")
-    submit_chat = st.form_submit_button("Send")
+    with st.form("chat_form"):
+        user_input_chat = st.text_input("Your question", key="chat_input")
+        submit_chat = st.form_submit_button("Send")
 
-if submit_chat and user_input_chat:
-    prompt = user_input_chat
+    if submit_chat and user_input_chat:
+        prompt = user_input_chat
 
-    if not hf_token:
-        st.sidebar.warning("⚠️ Hugging Face API token is missing or invalid.")
-    else:
-        try:
-            response = requests.post(
-                HF_API_URL,
-                headers=hf_headers,
-                json={"inputs": prompt},
-                timeout=30
-            )
-            response.raise_for_status()
-            output = response.json()[0]['generated_text'] if isinstance(response.json(), list) else response.json()['generated_text']
-        except Exception as e:
-            output = f"❌ Hugging Face API error: {str(e)}"
+        if not hf_token:
+            st.warning("⚠️ Hugging Face API token is missing or invalid.")
+        else:
+            try:
+                response = requests.post(
+                    HF_API_URL,
+                    headers=hf_headers,
+                    json={"inputs": prompt},
+                    timeout=30
+                )
+                response.raise_for_status()
+                output = response.json()[0]['generated_text'] if isinstance(response.json(), list) else response.json()['generated_text']
+            except Exception as e:
+                output = f"❌ Hugging Face API error: {str(e)}"
 
-        st.sidebar.markdown(f"**🤖 Avyan:** {output}")
+            st.markdown(f"**🤖 Avyan:** {output}")
