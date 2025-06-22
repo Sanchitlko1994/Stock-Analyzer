@@ -15,14 +15,9 @@ import base64  # for audio feedback
 # -------------------------------
 st.set_page_config(page_title="Stock Analyzer Web App", layout="wide")
 
-# Optional CSS for Fade-In Animation and Draggable Chatbox
+# Optional CSS Fade-In Animation for smooth transition
 st.markdown("""
     <style>
-    [data-testid="stSidebar"] {
-        order: 0;
-        border-right: 1px solid #ccc;
-        border-left: none;
-    }
     .element-container:nth-child(n+4) div[data-testid="stVerticalBlock"] {
         animation: fadeIn 0.6s ease-in-out;
     }
@@ -30,72 +25,7 @@ st.markdown("""
         from {opacity: 0;}
         to {opacity: 1;}
     }
-    #chatbox-toggle {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        background-color: #1e1e1e;
-        color: white;
-        border-radius: 12px;
-        border: 1px solid #444;
-        padding: 10px 16px;
-        cursor: pointer;
-        z-index: 999;
-    }
-    #chatbox {
-        position: fixed;
-        bottom: 80px;
-        right: 30px;
-        width: 350px;
-        max-height: 450px;
-        background-color: #1e1e1e;
-        color: white;
-        border-radius: 12px;
-        border: 1px solid #444;
-        z-index: 1000;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-        padding: 20px;
-        overflow-y: auto;
-        font-family: 'Segoe UI', sans-serif;
-    }
-    #chatbox-header {
-        font-weight: bold;
-        margin-bottom: 10px;
-        cursor: move;
-        color: #fff;
-    }
     </style>
-    <script>
-    window.onload = function() {
-        const el = window.parent.document.querySelector('#chatbox');
-        if (el) {
-            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-            el.onmousedown = dragMouseDown;
-            function dragMouseDown(e) {
-                e = e || window.event;
-                e.preventDefault();
-                pos3 = e.clientX;
-                pos4 = e.clientY;
-                document.onmouseup = closeDragElement;
-                document.onmousemove = elementDrag;
-            }
-            function elementDrag(e) {
-                e = e || window.event;
-                e.preventDefault();
-                pos1 = pos3 - e.clientX;
-                pos2 = pos4 - e.clientY;
-                pos3 = e.clientX;
-                pos4 = e.clientY;
-                el.style.top = (el.offsetTop - pos2) + "px";
-                el.style.left = (el.offsetLeft - pos1) + "px";
-            }
-            function closeDragElement() {
-                document.onmouseup = null;
-                document.onmousemove = null;
-            }
-        }
-    }
-    </script>
 """, unsafe_allow_html=True)
 
 st.title("📊 Stock Analyzer Web App")
@@ -112,13 +42,13 @@ def get_nse_index_stocks(index_name="NIFTY 50"):
 # -------------------------------
 # Sidebar Inputs
 # -------------------------------
-with st.sidebar:
-    index_options = ["NIFTY 50", "NIFTY 100", "NIFTY 500", "NIFTY AUTO", "NIFTY BANK", "NIFTY FINANCIAL SERVICES","NIFTY HEALTHCARE","NIFTY PHARMA","NIFTY IT","NIFTY OIL & GAS"]
-    selected_index = st.selectbox("Select NSE Index", index_options)
-    start_date = st.date_input("Start Date", pd.to_datetime("2023-01-01"))
-    end_date = st.date_input("End Date", pd.to_datetime("today"))
-    analyze_button = st.button("🔍 Analyze")
-    clear_button = st.button("🧹 Clear Analysis")
+index_options = ["NIFTY 50", "NIFTY 100", "NIFTY 500", "NIFTY AUTO", "NIFTY BANK", "NIFTY FINANCIAL SERVICES","NIFTY HEALTHCARE","NIFTY PHARMA","NIFTY IT","NIFTY OIL & GAS"]
+selected_index = st.sidebar.selectbox("Select NSE Index", index_options)
+start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
+end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
+
+analyze_button = st.sidebar.button("🔍 Analyze")
+clear_button = st.sidebar.button("🧹 Clear Analysis")
 
 # -------------------------------
 # State Management
@@ -129,7 +59,7 @@ if clear_button:
 
 if analyze_button:
     st.session_state["start_analysis"] = True
-    st.session_state["selected_stock"] = None
+    st.session_state["selected_stock"] = None  # Reset selection state on new analysis
 
 # -------------------------------
 # Detect Bollinger Breakout Function
@@ -140,6 +70,7 @@ def detect_bollinger_breakout(df):
 
     close_series = df['Close'].squeeze()
     bb = ta.volatility.BollingerBands(close=close_series, window=20, window_dev=2)
+    bb_bbm = bb.bollinger_mavg()
     bb_bbh = bb.bollinger_hband()
     bb_bbl = bb.bollinger_lband()
     bb_width = bb_bbh - bb_bbl
@@ -194,7 +125,7 @@ if st.session_state.get("start_analysis"):
             st.success(f"✅ {len(breakout_stocks)} breakout stocks found.")
 
 # -------------------------------
-# Stock Analysis UI
+# Stock Analysis UI (Always available after analysis)
 # -------------------------------
 breakout_stocks = st.session_state.get("breakout_stocks", [])
 if breakout_stocks:
@@ -252,30 +183,16 @@ if breakout_stocks:
     st.info(f"✅ Analysis completed in {elapsed:.2f} seconds.")
 
 # -------------------------------
-# Floating Toggle Button
-# -------------------------------
-st.markdown("""
-    <div id="chatbox-toggle" onclick="document.getElementById('chatbox').style.display='block'">
-        💬 Ask Shweta
-    </div>
-""", unsafe_allow_html=True)
-
-# -------------------------------
 # Hugging Face Chatbot Section
 # -------------------------------
-st.markdown("""
-<div id="chatbox" style="display:none;">
-    <div id="chatbox-header">
-        <span>💬 Ask Shweta</span>
-        <button onclick="document.getElementById('chatbox').style.display='none'" style="float:right;background:none;border:none;font-size:16px;">❌</button>
-    </div>
-""", unsafe_allow_html=True)
+st.sidebar.markdown("---")
+st.sidebar.subheader("💬 Ask Shweta")
 
 HF_API_URL = "https://api-inference.huggingface.co/models/bigscience/bloom-560m"
 hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
 hf_headers = {"Authorization": f"Bearer {hf_token}"}
 
-with st.form("chat_form"):
+with st.sidebar.form("chat_form"):
     user_input_chat = st.text_input("Your question", key="chat_input")
     submit_chat = st.form_submit_button("Send")
 
@@ -283,7 +200,7 @@ if submit_chat and user_input_chat:
     prompt = user_input_chat
 
     if not hf_token:
-        st.warning("⚠️ Hugging Face API token is missing or invalid.")
+        st.sidebar.warning("⚠️ Hugging Face API token is missing or invalid.")
     else:
         try:
             response = requests.post(
@@ -297,6 +214,4 @@ if submit_chat and user_input_chat:
         except Exception as e:
             output = f"❌ Hugging Face API error: {str(e)}"
 
-        st.markdown(f"**🤖 Avyan:** {output}")
-
-st.markdown("</div>", unsafe_allow_html=True)
+        st.sidebar.markdown(f"**🤖 Avyan:** {output}")
