@@ -37,14 +37,18 @@ end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
 def detect_bollinger_breakout(df):
     if len(df) < 21:
         return False
-    bb = ta.volatility.BollingerBands(close=df['Close'], window=20, window_dev=2)
+
+    close_series = df['Close'].squeeze()  # Ensure it's a Series
+    bb = ta.volatility.BollingerBands(close=close_series, window=20, window_dev=2)
     bb_bbm = bb.bollinger_mavg()
     bb_bbh = bb.bollinger_hband()
     bb_bbl = bb.bollinger_lband()
     bb_width = bb_bbh - bb_bbl
+
     df['bb_width'] = bb_width
     narrow = bb_width < bb_width.quantile(0.2)
-    breakout = df['Close'] > bb_bbh
+    breakout = close_series > bb_bbh
+
     return narrow.iloc[-1] and breakout.iloc[-1]
 
 # -------------------------------
@@ -81,11 +85,12 @@ if breakout_stocks:
     df = get_data(selected_stock, start_date, end_date)
 
     # Calculate indicators
-    bb = ta.volatility.BollingerBands(close=df['Close'], window=20, window_dev=2)
+    close_series = df['Close'].squeeze()
+    bb = ta.volatility.BollingerBands(close=close_series, window=20, window_dev=2)
     df['bb_mavg'] = bb.bollinger_mavg()
     df['bb_high'] = bb.bollinger_hband()
     df['bb_low'] = bb.bollinger_lband()
-    df['RSI'] = ta.momentum.RSIIndicator(close=df['Close'], window=14).rsi()
+    df['RSI'] = ta.momentum.RSIIndicator(close=close_series, window=14).rsi()
 
     # Bollinger + Candlestick
     st.subheader(f"📈 {selected_stock} - Bollinger Band with Close Price")
