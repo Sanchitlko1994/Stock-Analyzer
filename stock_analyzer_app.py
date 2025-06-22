@@ -110,7 +110,7 @@ if "chat_messages" not in st.session_state:
 def ask_gpt(messages):
     try:
         response = client.chat.completions.create(
-            model="gpt-4",  # Use "gpt-3.5-turbo" if you don't have GPT-4 access
+            model="gpt-3.5-turbo",  # Use "gpt-3.5-turbo" if you don't have GPT-4 access
             messages=messages,
             temperature=0.7,
             max_tokens=300
