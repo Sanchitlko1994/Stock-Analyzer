@@ -31,17 +31,18 @@ st.set_page_config(
 )
 
 # ==============================================
-# 🌈 Custom Styling
+# 🌈 Custom Styling + Animation
 # ==============================================
 
 st.markdown("""
     <style>
     body {
-        background-color: #0e1117;
-        color: #ffffff;
+        background-color: #f4f4f9;
+        color: #111;
+        font-family: 'Segoe UI', sans-serif;
     }
     .stSidebar > div:first-child {
-        background-color: #0e1117;
+        background-color: #ffffff;
     }
     .stButton > button {
         width: 100%;
@@ -49,46 +50,39 @@ st.markdown("""
         background-color: #4a90e2;
         color: white;
         border: none;
+        transition: 0.3s;
     }
     .stButton > button:hover {
         background-color: #357ABD;
     }
     .stRadio > div {
-        background-color: #1e2127;
-        color: white;
+        background-color: #f0f2f6;
+        color: black;
         padding: 0.5rem;
-        border-radius: 0.5rem;
-    }
-    .stSelectbox, .stDateInput, .stNumberInput {
-        background-color: #1e2127;
-        color: #ffffff;
         border-radius: 0.5rem;
     }
     h1, h2, h3, h4 {
         color: #4a90e2;
     }
-    .css-1v0mbdj, .css-ffhzg2, .css-1cpxqw2 {
-        background-color: #1e2127;
-        color: #ffffff;
-        border-radius: 0.5rem;
-    }
     .block-container {
         padding: 1rem 2rem;
+        animation: fadeIn 1s ease-in-out;
+    }
+    @keyframes fadeIn {
+        0% {opacity: 0; transform: translateY(10px);}
+        100% {opacity: 1; transform: translateY(0);}
     }
     </style>
 """, unsafe_allow_html=True)
 
 # ==============================================
-# 📜 Title
+# 📜 Title with Tabs
 # ==============================================
 
-st.markdown(
-    """
+st.markdown("""
     <h1 style='text-align: center; margin-top: 10px; font-size: 3rem;'>📊 Stock Analyzer Web App</h1>
-    <p style='text-align: center; font-size: 1.1rem; color: #ccc;'>Analyze NSE stocks with Bollinger Bands, RSI & MACD indicators</p>
-    """,
-    unsafe_allow_html=True
-)
+    <p style='text-align: center; font-size: 1.1rem; color: #444;'>Analyze NSE stocks with Bollinger Bands, RSI & MACD indicators</p>
+""", unsafe_allow_html=True)
 
 # ==============================================
 # 📂 Load Stock List
@@ -101,62 +95,65 @@ def get_nse_index_stocks(index_name="NIFTY 50"):
     return df[df["index"] == index_name]["stock"].tolist()
 
 # ==============================================
-# ☘️ Sidebar Inputs
+# ☘️ Sidebar Inputs with Collapsible Settings
 # ==============================================
 
 with st.sidebar:
-    st.header("🔧 Stock Selection")
-    index_options = [
-        "NIFTY 50", "NIFTY 100", "NIFTY 500", "NIFTY AUTO", "NIFTY BANK",
-        "NIFTY FINANCIAL SERVICES", "NIFTY HEALTHCARE", "NIFTY PHARMA",
-        "NIFTY IT", "NIFTY OIL & GAS"
-    ]
-    selected_index = st.selectbox("Select NSE Index", index_options)
-    start_date = st.date_input("Start Date", pd.to_datetime("2023-01-01"))
-    end_date = st.date_input("End Date", pd.to_datetime("today"))
+    with st.expander("🔧 Stock Selection", expanded=True):
+        index_options = [
+            "NIFTY 50", "NIFTY 100", "NIFTY 500", "NIFTY AUTO", "NIFTY BANK",
+            "NIFTY FINANCIAL SERVICES", "NIFTY HEALTHCARE", "NIFTY PHARMA",
+            "NIFTY IT", "NIFTY OIL & GAS"
+        ]
+        selected_index = st.selectbox("Select NSE Index", index_options)
+        start_date = st.date_input("Start Date", pd.to_datetime("2023-01-01"))
+        end_date = st.date_input("End Date", pd.to_datetime("today"))
 
-    st.header("🛠️ Analysis Tools")
-    analyze_button = st.button("🔍 Analyze")
-    clear_button = st.button("🗾 Clear Analysis")
+    with st.expander("🛠️ Analysis Tools", expanded=True):
+        analyze_button = st.button("🔍 Analyze")
+        clear_button = st.button("🗾 Clear Analysis")
 
-    st.header("📐 Indicators")
-    if "show_indicator_settings" not in st.session_state:
-        st.session_state.show_indicator_settings = False
-    if "show_indicator_chart" not in st.session_state:
-        st.session_state.show_indicator_chart = False
+    with st.expander("📐 Indicator Settings", expanded=True):
+        if "show_indicator_settings" not in st.session_state:
+            st.session_state.show_indicator_settings = False
+        if "show_indicator_chart" not in st.session_state:
+            st.session_state.show_indicator_chart = False
 
-    if st.button("📜 Customized Options"):
-        st.session_state.show_indicator_settings = not st.session_state.show_indicator_settings
+        st.toggle("📜 Customized Options", key="show_indicator_settings")
+        st.toggle("📊 Technical Chart", key="show_indicator_chart")
 
-    if st.button("📊 Technical Chart"):
-        st.session_state.show_indicator_chart = not st.session_state.show_indicator_chart
+        if st.session_state.show_indicator_chart:
+            indicator_choice = st.radio(
+                "📊 Technical Indicator",
+                options=["RSI", "MACD"],
+                index=0
+            )
+        else:
+            indicator_choice = "None"
 
-    if st.session_state.show_indicator_chart:
-        indicator_choice = st.radio(
-            "📊 Technical Indicator",
-            options=["RSI", "MACD"],
-            index=0
-        )
-    else:
-        indicator_choice = "None"
-
-    if st.session_state.show_indicator_settings:
-        st.markdown("### 🎛️ Customize Indicators")
-        rsi_period = int(st.number_input("RSI Period", min_value=2, max_value=50, value=14))
-        macd_fast = int(st.number_input("MACD Fast Period", min_value=2, max_value=50, value=12))
-        macd_slow = int(st.number_input("MACD Slow Period", min_value=13, max_value=100, value=26))
-        macd_signal = int(st.number_input("MACD Signal Period", min_value=1, max_value=30, value=9))
-    else:
-        rsi_period = 14
-        macd_fast = 12
-        macd_slow = 26
-        macd_signal = 9
+        if st.session_state.show_indicator_settings:
+            st.markdown("### 🎛️ Customize Indicators")
+            rsi_period = int(st.number_input("RSI Period", min_value=2, max_value=50, value=14))
+            macd_fast = int(st.number_input("MACD Fast Period", min_value=2, max_value=50, value=12))
+            macd_slow = int(st.number_input("MACD Slow Period", min_value=13, max_value=100, value=26))
+            macd_signal = int(st.number_input("MACD Signal Period", min_value=1, max_value=30, value=9))
+        else:
+            rsi_period = 14
+            macd_fast = 12
+            macd_slow = 26
+            macd_signal = 9
 
     if "show_chat" not in st.session_state:
         st.session_state.show_chat = False
 
     if st.button("💬 Show/Hide Chatbot"):
         st.session_state.show_chat = not st.session_state.show_chat
+
+    with st.expander("🤖 Chatbot", expanded=False):
+        if "show_chat" not in st.session_state:
+            st.session_state.show_chat = False
+
+        st.toggle("💬 Show/Hide Chatbot", key="show_chat")
 # ==============================================
 # 🚓 State Management
 # ==============================================
@@ -310,31 +307,28 @@ if breakout_stocks:
 # ==============================================
 
 if st.session_state.show_chat:
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("💬 Ask Shweta")
+            HF_API_URL = "https://api-inference.huggingface.co/models/bigscience/bloom-560m"
+            hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
+            hf_headers = {"Authorization": f"Bearer {hf_token}"}
 
-    HF_API_URL = "https://api-inference.huggingface.co/models/bigscience/bloom-560m"
-    hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
-    hf_headers = {"Authorization": f"Bearer {hf_token}"}
+            with st.form("chat_form"):
+                user_input_chat = st.text_input("Your question", key="chat_input")
+                submit_chat = st.form_submit_button("Send")
 
-    with st.sidebar.form("chat_form"):
-        user_input_chat = st.text_input("Your question", key="chat_input")
-        submit_chat = st.form_submit_button("Send")
+            if submit_chat and user_input_chat:
+                if not hf_token:
+                    st.warning("⚠️ Hugging Face API token is missing or invalid.")
+                else:
+                    try:
+                        response = requests.post(
+                            HF_API_URL,
+                            headers=hf_headers,
+                            json={"inputs": user_input_chat},
+                            timeout=30
+                        )
+                        response.raise_for_status()
+                        output = response.json()[0]['generated_text'] if isinstance(response.json(), list) else response.json()['generated_text']
+                    except Exception as e:
+                        output = f"❌ Hugging Face API error: {str(e)}"
 
-    if submit_chat and user_input_chat:
-        if not hf_token:
-            st.sidebar.warning("⚠️ Hugging Face API token is missing or invalid.")
-        else:
-            try:
-                response = requests.post(
-                    HF_API_URL,
-                    headers=hf_headers,
-                    json={"inputs": user_input_chat},
-                    timeout=30
-                )
-                response.raise_for_status()
-                output = response.json()[0]['generated_text'] if isinstance(response.json(), list) else response.json()['generated_text']
-            except Exception as e:
-                output = f"❌ Hugging Face API error: {str(e)}"
-
-            st.sidebar.markdown(f"**🤖 Avyan:** {output}")
+                    st.markdown(f"**🤖 Avyan:** {output}")
