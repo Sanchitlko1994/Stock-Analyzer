@@ -51,10 +51,6 @@ st.markdown("""
 # 🧾 Title
 # ==============================================
 
-# Show the logo at the top
-logo = Image.open("45c8614b-bc8e-4244-846f-f7e930380010.png")
-st.image(logo, width=100)
-
 st.title("📊 Stock Analyzer Web App")
 
 # ==============================================
