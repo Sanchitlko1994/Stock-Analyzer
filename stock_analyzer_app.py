@@ -13,8 +13,22 @@ import base64  # for audio feedback
 # -------------------------------
 # Streamlit Page Configuration
 # -------------------------------
-st.set_page_config(page_title="Stock Analyzer Web App", layout="wide")  # Set page title and layout
-st.title("📊 Stock Analyzer Web App")  # Title displayed on the app
+st.set_page_config(page_title="Stock Analyzer Web App", layout="wide")
+
+# Optional CSS Fade-In Animation for smooth transition
+st.markdown("""
+    <style>
+    .element-container:nth-child(n+4) div[data-testid="stVerticalBlock"] {
+        animation: fadeIn 0.6s ease-in-out;
+    }
+    @keyframes fadeIn {
+        from {opacity: 0;}
+        to {opacity: 1;}
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.title("📊 Stock Analyzer Web App")
 
 # -------------------------------
 # NSE Index Stock Fetch Function from GitHub CSV
