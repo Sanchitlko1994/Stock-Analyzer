@@ -15,7 +15,7 @@ import base64  # for audio feedback
 # -------------------------------
 st.set_page_config(page_title="Stock Analyzer Web App", layout="wide")
 
-# Optional CSS Fade-In Animation and Sidebar on Left
+# Optional CSS for Fade-In Animation and Draggable Chatbox
 st.markdown("""
     <style>
     [data-testid="stSidebar"] {
@@ -30,7 +30,52 @@ st.markdown("""
         from {opacity: 0;}
         to {opacity: 1;}
     }
+    #chatbox {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 300px;
+        padding: 15px;
+        background-color: white;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        z-index: 1000;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        cursor: move;
+    }
     </style>
+    <script>
+    // Drag logic for chatbot
+    window.onload = function() {
+        const el = window.parent.document.querySelector('#chatbox')
+        if (el) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            el.onmousedown = dragMouseDown;
+            function dragMouseDown(e) {
+                e = e || window.event;
+                e.preventDefault();
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            }
+            function elementDrag(e) {
+                e = e || window.event;
+                e.preventDefault();
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                el.style.top = (el.offsetTop - pos2) + "px";
+                el.style.left = (el.offsetLeft - pos1) + "px";
+            }
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        }
+    }
+    </script>
 """, unsafe_allow_html=True)
 
 st.title("📊 Stock Analyzer Web App")
@@ -191,34 +236,37 @@ if breakout_stocks:
 # Hugging Face Chatbot Section
 # -------------------------------
 if toggle_chatbot:
-    with st.sidebar:
-        st.markdown("---")
-        st.subheader("💬 Ask Shweta")
+    st.markdown("""
+        <div id="chatbox">
+        <h4>💬 Ask Shweta</h4>
+    """, unsafe_allow_html=True)
 
-        HF_API_URL = "https://api-inference.huggingface.co/models/bigscience/bloom-560m"
-        hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
-        hf_headers = {"Authorization": f"Bearer {hf_token}"}
+    HF_API_URL = "https://api-inference.huggingface.co/models/bigscience/bloom-560m"
+    hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
+    hf_headers = {"Authorization": f"Bearer {hf_token}"}
 
-        with st.form("chat_form"):
-            user_input_chat = st.text_input("Your question", key="chat_input")
-            submit_chat = st.form_submit_button("Send")
+    with st.form("chat_form"):
+        user_input_chat = st.text_input("Your question", key="chat_input")
+        submit_chat = st.form_submit_button("Send")
 
-        if submit_chat and user_input_chat:
-            prompt = user_input_chat
+    if submit_chat and user_input_chat:
+        prompt = user_input_chat
 
-            if not hf_token:
-                st.warning("⚠️ Hugging Face API token is missing or invalid.")
-            else:
-                try:
-                    response = requests.post(
-                        HF_API_URL,
-                        headers=hf_headers,
-                        json={"inputs": prompt},
-                        timeout=30
-                    )
-                    response.raise_for_status()
-                    output = response.json()[0]['generated_text'] if isinstance(response.json(), list) else response.json()['generated_text']
-                except Exception as e:
-                    output = f"❌ Hugging Face API error: {str(e)}"
+        if not hf_token:
+            st.warning("⚠️ Hugging Face API token is missing or invalid.")
+        else:
+            try:
+                response = requests.post(
+                    HF_API_URL,
+                    headers=hf_headers,
+                    json={"inputs": prompt},
+                    timeout=30
+                )
+                response.raise_for_status()
+                output = response.json()[0]['generated_text'] if isinstance(response.json(), list) else response.json()['generated_text']
+            except Exception as e:
+                output = f"❌ Hugging Face API error: {str(e)}"
 
-                st.markdown(f"**🤖 Avyan:** {output}")
+            st.markdown(f"**🤖 Avyan:** {output}")
+
+    st.markdown("</div>", unsafe_allow_html=True)
