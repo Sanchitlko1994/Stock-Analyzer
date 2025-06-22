@@ -3,128 +3,85 @@ import yfinance as yf
 import pandas as pd
 import ta
 import matplotlib.pyplot as plt
-from datetime import datetime
 
-# --- Streamlit App Config ---
-st.set_page_config(page_title="Stock Analyzer & RSI Comparator", layout="wide")
-st.title("📊 Stock Analyzer & Top 5 RSI Picks")
+# Set up the page
+st.set_page_config(page_title="Stock Analyzer", layout="wide")
+st.title("📊 Stock Analyzer Web App")
 
-# --- Index and Ticker Selection ---
-index_options = {
-    "NIFTY 50": ["RELIANCE", "TCS", "INFY", "HDFCBANK", "LT", "WIPRO", "HCLTECH", "ITC", "MARUTI", "TATAMOTORS"],
-    "NIFTY 100": ["ASIANPAINT", "BAJFINANCE", "BHARTIARTL", "CIPLA", "DIVISLAB"],
-    "NIFTY BANK": ["AXISBANK", "ICICIBANK", "KOTAKBANK", "PNB", "SBIN"]
-}
-
-selected_index = st.sidebar.selectbox("Select Index", list(index_options.keys()))
-selected_stocks = index_options[selected_index]
-
-custom_ticker = st.sidebar.text_input("Or Enter Custom Stock Ticker (e.g., AAPL, TCS)", "")
-
-if custom_ticker:
-    if "." not in custom_ticker:
-        ticker_list = [custom_ticker + ".NS"]
-    else:
-        ticker_list = [custom_ticker]
-else:
-    ticker_list = [ticker + ".NS" if "." not in ticker else ticker for ticker in selected_stocks]
-
+# Sidebar inputs
+user_input = st.sidebar.text_input("Stock Ticker (e.g., AAPL, TCS.NS)", "TCS")
 start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
 end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
 
+# Append .NS if not present
+def format_ticker(ticker):
+    if "." not in ticker:
+        return ticker.strip().upper() + ".NS"
+    return ticker.strip().upper()
+
+ticker = format_ticker(user_input)
+
+# Download data
 @st.cache_data
-def fetch_data(ticker, start, end):
+def get_data(ticker, start, end):
     df = yf.download(ticker, start=start, end=end)
-    df.dropna(inplace=True)
+    if not df.empty:
+        df = df.dropna()
     return df
 
-def calculate_indicators(df):
-    close = df['Close'].squeeze()  # Ensure it's a 1D Series
+# Analyze button
+if st.sidebar.button("Analyze"):
+    try:
+        data = get_data(ticker, start_date, end_date)
 
-    ema12 = ta.trend.EMAIndicator(close=close, window=12).ema_indicator()
-    ema26 = ta.trend.EMAIndicator(close=close, window=26).ema_indicator()
-    rsi = ta.momentum.RSIIndicator(close=close, window=14).rsi()
+        if data.empty or 'Close' not in data.columns:
+            st.warning(f"No valid 'Close' data found for {ticker}.")
+        else:
+            # Ensure 'Close' is a 1D Series
+            close_prices = data['Close']
+            if isinstance(close_prices, pd.DataFrame):
+                close_prices = close_prices.squeeze()  # Convert (n,1) to (n,)
+            if close_prices.empty or len(close_prices) < 20:
+                st.error("Not enough data to calculate indicators.")
+            else:
+                # Calculate indicators
+                sma_20 = ta.trend.SMAIndicator(close=close_prices, window=20).sma_indicator()
+                rsi_14 = ta.momentum.RSIIndicator(close=close_prices, window=14).rsi()
 
-    df['EMA_12'] = ema12
-    df['EMA_26'] = ema26
-    df['RSI'] = rsi
+                # Assign back to dataframe
+                data['SMA_20'] = sma_20
+                data['RSI'] = rsi_14
 
-    return df
+                # Plot close price and SMA
+                st.subheader(f"📈 {user_input.upper()} Price Chart with SMA")
+                fig, ax = plt.subplots(figsize=(12, 6))
+                ax.plot(data.index, data['Close'], label='Close Price')
+                ax.plot(data.index, data['SMA_20'], label='SMA 20', linestyle='--')
+                ax.set_title(f"{user_input.upper()} - Price with SMA")
+                ax.legend()
+                st.pyplot(fig)
 
-def generate_signals(df):
-    df['Buy_EMA'] = (df['EMA_12'] > df['EMA_26']) & (df['EMA_12'].shift(1) <= df['EMA_26'].shift(1))
-    df['Sell_EMA'] = (df['EMA_12'] < df['EMA_26']) & (df['EMA_12'].shift(1) >= df['EMA_26'].shift(1))
-    df['Buy_RSI'] = df['RSI'] < 30
-    df['Sell_RSI'] = df['RSI'] > 70
-    return df
+                # Plot RSI
+                st.subheader("📉 RSI Indicator")
+                fig2, ax2 = plt.subplots(figsize=(12, 3))
+                ax2.plot(data.index, data['RSI'], label='RSI', color='green')
+                ax2.axhline(70, linestyle='--', color='red')
+                ax2.axhline(30, linestyle='--', color='blue')
+                ax2.set_title("RSI (14)")
+                ax2.legend()
+                st.pyplot(fig2)
 
-def plot_price_with_signals(df, ticker):
-    fig, ax = plt.subplots(figsize=(14, 6))
-    ax.plot(df.index, df['Close'], label='Close Price', color='black')
-    ax.plot(df.index, df['EMA_12'], label='EMA 12', linestyle='--')
-    ax.plot(df.index, df['EMA_26'], label='EMA 26', linestyle=':')
+                # Show recent data
+                st.subheader("📄 Sample Data")
+                st.dataframe(data.tail(10))
 
-    buy_points = df[df['Buy_EMA']]
-    sell_points = df[df['Sell_EMA']]
-    ax.plot(buy_points.index, buy_points['Close'], '^', markersize=10, color='green', label='Buy Signal')
-    ax.plot(sell_points.index, sell_points['Close'], 'v', markersize=10, color='red', label='Sell Signal')
+                # Download option
+                st.download_button(
+                    label="⬇️ Download CSV",
+                    data=data.to_csv().encode(),
+                    file_name=f"{user_input.upper()}_data.csv",
+                    mime='text/csv'
+                )
 
-    ax.set_title(f"{ticker} Price with EMA and Buy/Sell Signals")
-    ax.legend()
-    ax.grid()
-    st.pyplot(fig)
-
-def plot_rsi(df):
-    fig, ax = plt.subplots(figsize=(14, 3))
-    ax.plot(df.index, df['RSI'], label='RSI', color='blue')
-    ax.axhline(70, linestyle='--', color='red')
-    ax.axhline(30, linestyle='--', color='green')
-
-    rsi_buy = df[df['Buy_RSI']]
-    rsi_sell = df[df['Sell_RSI']]
-    ax.plot(rsi_buy.index, rsi_buy['RSI'], '^', markersize=8, color='green', label='RSI Buy')
-    ax.plot(rsi_sell.index, rsi_sell['RSI'], 'v', markersize=8, color='red', label='RSI Sell')
-
-    ax.set_title("RSI Indicator with Buy/Sell Thresholds")
-    ax.legend()
-    ax.grid()
-    st.pyplot(fig)
-
-# --- Main Logic ---
-if st.sidebar.button("Analyze & Compare"):
-    rsi_list = []
-    result_data = {}
-
-    for ticker in ticker_list:
-        try:
-            df = fetch_data(ticker, start_date, end_date)
-            if df.empty or 'Close' not in df.columns:
-                st.warning(f"No valid data for {ticker}")
-                continue
-
-            df = calculate_indicators(df)
-            df = generate_signals(df)
-
-            if not df.empty and 'RSI' in df.columns:
-                rsi_list.append((ticker, df['RSI'].iloc[-1]))
-                result_data[ticker] = df
-        except Exception as e:
-            st.warning(f"Failed to process {ticker}: {e}")
-
-    top5 = sorted(rsi_list, key=lambda x: x[1])[:5]  # lowest RSI
-
-    for ticker, rsi_val in top5:
-        st.subheader(f"📈 {ticker} (RSI: {rsi_val:.2f})")
-        df = result_data[ticker]
-        plot_price_with_signals(df, ticker)
-        plot_rsi(df)
-
-        st.subheader("📄 Latest 20 Rows of Data with Signals")
-        st.dataframe(df.tail(20))
-
-        st.download_button(
-            label="⬇️ Download CSV",
-            data=df.to_csv().encode(),
-            file_name=f"{ticker}_analysis.csv",
-            mime='text/csv'
-        )
+    except Exception as e:
+        st.error(f"❌ Error: {str(e)}")
