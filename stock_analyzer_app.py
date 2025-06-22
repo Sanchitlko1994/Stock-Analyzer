@@ -78,7 +78,11 @@ except Exception as e:
 # -------------------------------
 # UI: Display List of Breakout Stocks
 # -------------------------------
-if breakout_stocks:
+if not stocks:
+    st.error("❌ Failed to load index data: No stocks fetched from selected index.")
+elif not breakout_stocks:
+    st.warning("⚠️ No breakout stocks found for the selected period.")
+else:
     st.sidebar.success(f"{len(breakout_stocks)} breakout stocks found")
     selected_stock = st.sidebar.selectbox("Select Stock for Analysis", breakout_stocks)
 
@@ -122,8 +126,6 @@ if breakout_stocks:
         file_name=f"{selected_stock}_data.csv",
         mime='text/csv'
     )
-else:
-    st.warning("No breakout stocks found or failed to fetch index data.")
 
 # -------------------------------
 # Hugging Face Chatbot Section
