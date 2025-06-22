@@ -242,3 +242,38 @@ if breakout_stocks:
     st.markdown(audio_html, unsafe_allow_html=True)
     elapsed = time.time() - start_timer
     st.info(f"✅ Analysis completed in {elapsed:.2f} seconds.")
+
+
+# ==============================================
+# 🤖 Chatbot: Ask Shweta
+# ==============================================
+
+if st.session_state.show_chat:
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("💬 Ask Shweta")
+
+    HF_API_URL = "https://api-inference.huggingface.co/models/bigscience/bloom-560m"
+    hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
+    hf_headers = {"Authorization": f"Bearer {hf_token}"}
+
+    with st.sidebar.form("chat_form"):
+        user_input_chat = st.text_input("Your question", key="chat_input")
+        submit_chat = st.form_submit_button("Send")
+
+    if submit_chat and user_input_chat:
+        if not hf_token:
+            st.sidebar.warning("⚠️ Hugging Face API token is missing or invalid.")
+        else:
+            try:
+                response = requests.post(
+                    HF_API_URL,
+                    headers=hf_headers,
+                    json={"inputs": user_input_chat},
+                    timeout=30
+                )
+                response.raise_for_status()
+                output = response.json()[0]['generated_text'] if isinstance(response.json(), list) else response.json()['generated_text']
+            except Exception as e:
+                output = f"❌ Hugging Face API error: {str(e)}"
+
+            st.sidebar.markdown(f"**🤖 Avyan:** {output}")
