@@ -3,23 +3,27 @@ import yfinance as yf
 import pandas as pd
 import ta
 import matplotlib.pyplot as plt
+import openai
+import os
 
 # -------------------------------
-# Streamlit Page Configuration
+# Set OpenAI API Key (securely)
 # -------------------------------
-st.set_page_config(page_title="Stock Analyzer", layout="wide")
-st.title("📊 Stock Analyzer Web App")
+openai.api_key = st.secrets.get("openai_api_key") or os.getenv("OPENAI_API_KEY")
 
 # -------------------------------
-# Sidebar Input Fields
+# Page Configuration
+# -------------------------------
+st.set_page_config(page_title="Stock Analyzer + AI", layout="wide")
+st.title("📊 Stock Analyzer with GPT Chatbot")
+
+# -------------------------------
+# Sidebar - Stock Inputs
 # -------------------------------
 user_input = st.sidebar.text_input("Stock Ticker (e.g., AAPL, TCS.NS)", "TCS")
 start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
 end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
 
-# -------------------------------
-# Format ticker (for NSE stocks)
-# -------------------------------
 def format_ticker(ticker):
     if "." not in ticker:
         return ticker.strip().upper() + ".NS"
@@ -27,9 +31,6 @@ def format_ticker(ticker):
 
 ticker = format_ticker(user_input)
 
-# -------------------------------
-# Data download function
-# -------------------------------
 @st.cache_data
 def get_data(ticker, start, end):
     df = yf.download(ticker, start=start, end=end)
@@ -38,7 +39,7 @@ def get_data(ticker, start, end):
     return df
 
 # -------------------------------
-# Stock Analysis Logic
+# Stock Analyzer Logic
 # -------------------------------
 if st.sidebar.button("Analyze"):
     try:
@@ -54,14 +55,12 @@ if st.sidebar.button("Analyze"):
             if close_prices.empty or len(close_prices) < 20:
                 st.error("Not enough data to calculate indicators.")
             else:
-                # Calculate indicators
                 sma_20 = ta.trend.SMAIndicator(close=close_prices, window=20).sma_indicator()
                 rsi_14 = ta.momentum.RSIIndicator(close=close_prices, window=14).rsi()
 
                 data['SMA_20'] = sma_20
                 data['RSI'] = rsi_14
 
-                # Plot Price Chart
                 st.subheader(f"📈 {user_input.upper()} Price Chart with SMA")
                 fig, ax = plt.subplots(figsize=(12, 6))
                 ax.plot(data.index, data['Close'], label='Close Price')
@@ -70,7 +69,6 @@ if st.sidebar.button("Analyze"):
                 ax.legend()
                 st.pyplot(fig)
 
-                # Plot RSI Chart
                 st.subheader("📉 RSI Indicator")
                 fig2, ax2 = plt.subplots(figsize=(12, 3))
                 ax2.plot(data.index, data['RSI'], label='RSI', color='green')
@@ -80,54 +78,53 @@ if st.sidebar.button("Analyze"):
                 ax2.legend()
                 st.pyplot(fig2)
 
-                # Show Recent Data
                 st.subheader("📄 Sample Data")
                 st.dataframe(data.tail(10))
 
-                # CSV Download Button
                 st.download_button(
                     label="⬇️ Download CSV",
                     data=data.to_csv().encode(),
                     file_name=f"{user_input.upper()}_data.csv",
                     mime='text/csv'
                 )
-
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
 
-
 # -------------------------------
-# AI Chatbot Assistant Section
+# AI Chatbot Powered by GPT
 # -------------------------------
 st.sidebar.markdown("---")
 st.sidebar.subheader("💬 Ask AI Assistant")
 
-# Initialize chat history
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+# Chat history state
+if "chat_messages" not in st.session_state:
+    st.session_state.chat_messages = [
+        {"role": "system", "content": "You are a helpful financial assistant. Explain concepts like RSI, SMA, stock charts, etc. Be clear and concise."}
+    ]
 
-# Simple rule-based AI response
-def ai_response(user_msg):
-    msg = user_msg.lower()
-    if "rsi" in msg:
-        return "RSI (Relative Strength Index) measures the speed and change of price movements. RSI >70 is overbought, <30 is oversold."
-    elif "sma" in msg or "moving average" in msg:
-        return "SMA (Simple Moving Average) smooths price data over a period. It helps identify trend direction."
-    elif "download" in msg:
-        return "Click the 'Download CSV' button to get the processed stock data."
-    elif "price chart" in msg:
-        return "The price chart shows the historical stock closing prices along with the 20-day SMA."
-    else:
-        return "I'm here to help with RSI, SMA, and charts. Try asking about those!"
+# User input
+user_question = st.sidebar.text_input("Your question")
 
-# Input box for user chat
-user_question = st.sidebar.text_input("Ask a question", key="chat_input")
+# Send question to GPT and get response
+def ask_openai(messages):
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",  # or "gpt-3.5-turbo"
+            messages=messages,
+            temperature=0.7,
+            max_tokens=300
+        )
+        return response.choices[0].message["content"]
+    except Exception as e:
+        return f"Error: {str(e)}"
 
+# Process user input
 if user_question:
-    response = ai_response(user_question)
-    st.session_state.chat_history.append(("You", user_question))
-    st.session_state.chat_history.append(("AI", response))
+    st.session_state.chat_messages.append({"role": "user", "content": user_question})
+    gpt_reply = ask_openai(st.session_state.chat_messages)
+    st.session_state.chat_messages.append({"role": "assistant", "content": gpt_reply})
 
 # Display chat history
-for speaker, msg in st.session_state.chat_history[-6:]:  # show last 6 messages
-    st.sidebar.markdown(f"**{speaker}:** {msg}")
+for msg in st.session_state.chat_messages[1:]:  # skip system message
+    speaker = "🧑 You" if msg["role"] == "user" else "🤖 GPT"
+    st.sidebar.markdown(f"**{speaker}:** {msg['content']}")
