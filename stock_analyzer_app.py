@@ -94,30 +94,34 @@ if st.sidebar.button("Analyze"):
         st.error(f"❌ Error: {str(e)}")
 
 # -------------------------------
-# Hugging Face Chatbot Section
+# Hugging Face Chatbot Section (Bottom-Right)
 # -------------------------------
-st.sidebar.markdown("---")
-st.sidebar.subheader("💬 Ask Shweta")
+with st.container():
+    col1, col2 = st.columns([3, 1])
 
-HF_API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
-hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
-hf_headers = {"Authorization": f"Bearer {hf_token}"}
+    with col2:
+        st.markdown("---")
+        st.subheader("💬 Ask Shweta")
 
-user_input_chat = st.sidebar.text_input("Your question")
+        HF_API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large"
+        hf_token = st.secrets.get("huggingface", {}).get("api_key") or os.getenv("HF_API_KEY")
+        hf_headers = {"Authorization": f"Bearer {hf_token}"}
 
-if user_input_chat:
-    prompt = user_input_chat
+        user_input_chat = st.text_input("Your question", key="chat_input")
 
-    try:
-        response = requests.post(
-            HF_API_URL,
-            headers=hf_headers,
-            json={"inputs": prompt},
-            timeout=30
-        )
-        response.raise_for_status()
-        output = response.json()[0]['generated_text'].split('<|assistant|>')[-1].strip()
-    except Exception as e:
-        output = f"❌ Hugging Face API error: {str(e)}"
+        if user_input_chat:
+            prompt = user_input_chat
 
-    st.sidebar.markdown(f"**🤖 Avyan:** {output}")
+            try:
+                response = requests.post(
+                    HF_API_URL,
+                    headers=hf_headers,
+                    json={"inputs": prompt},
+                    timeout=60
+                )
+                response.raise_for_status()
+                output = response.json()[0]['generated_text']
+            except Exception as e:
+                output = f"❌ Hugging Face API error: {str(e)}"
+
+            st.markdown(f"**🤖 Avyan:** {output}")
