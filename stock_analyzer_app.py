@@ -171,8 +171,8 @@ if breakout_stocks:
     ax2.legend()
     st.pyplot(fig2)
 
-    st.subheader("📄 Sample Data")
-    st.dataframe(df.tail(10))
+    ##st.subheader("📄 Sample Data")
+    ##st.dataframe(df.tail(10))
 
     st.download_button(
         label="⬇️ Download CSV",
