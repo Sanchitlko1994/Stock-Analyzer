@@ -102,7 +102,7 @@ if st.sidebar.button("💬 Show/Hide Chatbot"):
     st.session_state.show_chat = not st.session_state.show_chat
 
 # ==============================================
-# 🧳 State Management
+# 🚓 State Management
 # ==============================================
 
 if clear_button:
@@ -186,8 +186,6 @@ if breakout_stocks:
     st.session_state["selected_stock"] = selected_stock
 
     df = get_data(selected_stock, start_date, end_date)
-    df['Volume'] = pd.to_numeric(df['Volume'].astype(str), errors='coerce')
-    df['Volume'].fillna(0, inplace=True)
 
     close_series = df['Close'].squeeze()
     bb = ta.volatility.BollingerBands(close=close_series, window=20, window_dev=2)
@@ -199,38 +197,32 @@ if breakout_stocks:
     df['MACD'] = macd.macd()
     df['MACD_signal'] = macd.macd_signal()
 
-    st.subheader(f"📈 {selected_stock} - Price Chart with Bollinger Bands & Volume")
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True, gridspec_kw={"height_ratios": [3, 1]})
+    st.subheader(f"📈 {selected_stock} - Price Chart with Bollinger Bands")
+    fig, ax1 = plt.subplots(figsize=(12, 6))
     ax1.plot(df.index, df['Close'], label='Close Price')
     ax1.plot(df.index, df['bb_mavg'], label='Middle Band', linestyle='--')
     ax1.plot(df.index, df['bb_high'], label='Upper Band', linestyle='--')
     ax1.plot(df.index, df['bb_low'], label='Lower Band', linestyle='--')
     ax1.set_ylabel("Price")
     ax1.legend()
-    ax2.bar(df.index, df['Volume'], color='lightblue')
-    ax2.set_ylabel("Volume")
     st.pyplot(fig)
 
     if indicator_choice == "RSI":
-        st.subheader("📉 RSI Indicator with Volume")
-        fig2, (ax2a, ax2b) = plt.subplots(2, 1, figsize=(12, 6), sharex=True, gridspec_kw={"height_ratios": [2, 1]})
-        ax2a.plot(df.index, df['RSI'], label=f'RSI ({rsi_period})', color='green')
-        ax2a.axhline(70, linestyle='--', color='red')
-        ax2a.axhline(30, linestyle='--', color='blue')
-        ax2a.legend()
-        ax2b.bar(df.index, df['Volume'], color='gray')
-        ax2b.set_ylabel("Volume")
+        st.subheader("📉 RSI Indicator")
+        fig2, ax2 = plt.subplots(figsize=(12, 4))
+        ax2.plot(df.index, df['RSI'], label=f'RSI ({rsi_period})', color='green')
+        ax2.axhline(70, linestyle='--', color='red')
+        ax2.axhline(30, linestyle='--', color='blue')
+        ax2.legend()
         st.pyplot(fig2)
 
     elif indicator_choice == "MACD":
-        st.subheader("📉 MACD Indicator with Volume")
-        fig3, (ax3a, ax3b) = plt.subplots(2, 1, figsize=(12, 6), sharex=True, gridspec_kw={"height_ratios": [2, 1]})
-        ax3a.plot(df.index, df['MACD'], label='MACD', color='purple')
-        ax3a.plot(df.index, df['MACD_signal'], label='Signal Line', color='orange')
-        ax3a.axhline(0, linestyle='--', color='gray')
-        ax3a.legend()
-        ax3b.bar(df.index, df['Volume'], color='gray')
-        ax3b.set_ylabel("Volume")
+        st.subheader("📉 MACD Indicator")
+        fig3, ax3 = plt.subplots(figsize=(12, 4))
+        ax3.plot(df.index, df['MACD'], label='MACD', color='purple')
+        ax3.plot(df.index, df['MACD_signal'], label='Signal Line', color='orange')
+        ax3.axhline(0, linestyle='--', color='gray')
+        ax3.legend()
         st.pyplot(fig3)
 
     st.download_button(
